@@ -31,7 +31,14 @@ export default function NewTripPage() {
         </div>
         <label className="grid gap-2">
           <span className="label">Description</span>
-          <textarea className="input min-h-28" name="description" placeholder="What kind of trip is this?" />
+          <textarea
+            className="input min-h-28"
+            name="description"
+            placeholder="Short summary of the trip—this shows on your trip home and public share page."
+          />
+          <span className="text-xs leading-5 text-ink/55">
+            For booking codes, hotel details, and reminders, add those later from the Notes tab on the trip—they also appear on the trip home.
+          </span>
         </label>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="grid gap-2">

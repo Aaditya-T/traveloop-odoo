@@ -25,7 +25,9 @@ npm run db:seed
 npm run dev
 ```
 
-The seed adds curated city/activity catalog content. To create an admin account during seeding, set `TRAVELOOP_ADMIN_EMAIL`, `TRAVELOOP_ADMIN_PASSWORD`, and `TRAVELOOP_ADMIN_NAME` first.
+The seed loads a curated multi-region city and activity catalog. For a populated demo (`/community`, budgets, likes), set `TRAVELOOP_SEED_SHOWCASE=true` and `TRAVELOOP_SHOWCASE_PASSWORD`; see `.env.example` for the fixed demo emails that share that password and for notes on re-seeding (catalog activity refresh clears itinerary rows tied to those catalog entries).
+
+**Admin (`/admin`, `/admin/catalog`):** set `TRAVELOOP_ADMIN_EMAIL` and `TRAVELOOP_ADMIN_PASSWORD` in `.env` or `.env.local`, then run `npm run db:seed`. The seed script reads both files (same as typical local setup—previously only `.env` was picked up reliably). Watch the terminal: it logs `Admin user upserted: …` or a skip reason. Promoting a user in the database (`role = ADMIN`) works only if Prisma connects to the **same** `DATABASE_URL` as the app and you use the Prisma enum value `ADMIN` (see `UserRole` in `prisma/schema.prisma`).
 
 ## Core Routes
 

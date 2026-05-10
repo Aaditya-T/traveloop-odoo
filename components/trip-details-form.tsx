@@ -72,6 +72,10 @@ export function TripDetailsForm({ trip }: { trip: TripDetails }) {
       <label className="grid gap-2">
         <span className="label">Description</span>
         <textarea className="input min-h-28" name="description" defaultValue={trip.description ?? ""} />
+        <span className="text-xs leading-5 text-ink/55">
+          Shown under the trip title on this page. Use <span className="font-bold text-ink/70">Notes</span> in the nav for
+          reminders and booking details—they surface in Sticky notes above your itinerary.
+        </span>
       </label>
       <SubmitButton className="btn-primary" pendingLabel="Saving…" type="submit">
         Save details

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { CopyShareButton } from "@/components/copy-share-button";
 import { SubmitButton } from "@/components/submit-button";
 import { TripDetailsForm, type TripDetails } from "@/components/trip-details-form";
+import { TripNotesPeek } from "@/components/trip-notes-peek";
 import { TripNav } from "@/components/trip-nav";
 import { deleteItineraryItemAction, publishTripAction, unpublishTripAction } from "@/lib/actions";
 import { requireUser } from "@/lib/auth";
@@ -24,7 +25,12 @@ export default async function TripPage({ params }: { params: Promise<{ tripId: s
           itinerary: { orderBy: [{ date: "asc" }, { startTime: "asc" }], include: { activity: true } }
         }
       },
-      expenses: true
+      expenses: true,
+      notes: {
+        orderBy: { createdAt: "desc" },
+        take: 4,
+        include: { stop: { select: { city: { select: { name: true } } } } }
+      }
     }
   });
 
@@ -106,6 +112,15 @@ export default async function TripPage({ params }: { params: Promise<{ tripId: s
 
       <section className="grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
         <div className="grid gap-4">
+          <TripNotesPeek
+            notes={trip.notes.map((n) => ({
+              id: n.id,
+              title: n.title,
+              body: n.body,
+              stop: n.stop ? { city: { name: n.stop.city.name } } : null
+            }))}
+            tripId={trip.id}
+          />
           <div>
             <p className="label">Itinerary view</p>
             <h2 className="text-3xl font-black text-ink">Day by day route</h2>

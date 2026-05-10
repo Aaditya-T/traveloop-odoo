@@ -391,6 +391,7 @@ export async function addNoteAction(formData: FormData) {
   });
 
   revalidatePath(`/trips/${tripId}/notes`);
+  revalidatePath(`/trips/${tripId}`);
 }
 
 export async function deleteNoteAction(formData: FormData) {
@@ -400,6 +401,7 @@ export async function deleteNoteAction(formData: FormData) {
 
   await prisma.tripNote.delete({ where: { id: noteId, trip: { ownerId: user.id } } });
   revalidatePath(`/trips/${tripId}/notes`);
+  revalidatePath(`/trips/${tripId}`);
 }
 
 export async function publishTripAction(formData: FormData) {
