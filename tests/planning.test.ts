@@ -13,8 +13,8 @@ describe("date helpers", () => {
 describe("budget helpers", () => {
   it("combines manual and activity costs by category", () => {
     const expenses = [
-      { category: "TRANSPORT" as const, amount: 300 },
-      { category: "MEALS" as const, amount: 90 }
+      { category: "TRANSPORT" as const, amount: 300, quantity: 1, unitCost: 300, paidStatus: "UNPAID" as const },
+      { category: "MEALS" as const, amount: 90, quantity: 3, unitCost: 30, paidStatus: "PAID" as const }
     ];
     const activities = [
       { costOverride: null, activity: { estimatedCost: 45 } },
@@ -46,7 +46,9 @@ describe("itinerary grouping", () => {
         costIndex: 4,
         popularity: 98,
         imageUrl: "",
-        summary: ""
+        summary: "",
+        isFeatured: true,
+        isArchived: false
       },
       itinerary: [
         {
@@ -66,7 +68,9 @@ describe("itinerary grouping", () => {
             durationHours: 2,
             estimatedCost: 35,
             imageUrl: "",
-            tags: []
+            tags: [],
+            isFeatured: false,
+            isArchived: false
           }
         },
         {
@@ -86,7 +90,9 @@ describe("itinerary grouping", () => {
             durationHours: 3,
             estimatedCost: 15,
             imageUrl: "",
-            tags: []
+            tags: [],
+            isFeatured: true,
+            isArchived: false
           }
         }
       ]

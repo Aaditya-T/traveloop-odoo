@@ -128,7 +128,7 @@ const cities = [
 }>;
 
 function hashPassword(password: string) {
-  const salt = "traveloop-demo-salt";
+  const salt = "traveloop-seed-salt";
   const hash = scryptSync(password, salt, 64).toString("base64url");
   return `${salt}:${hash}`;
 }
@@ -144,7 +144,9 @@ async function main() {
         costIndex: city.costIndex,
         popularity: city.popularity,
         imageUrl: city.imageUrl,
-        summary: city.summary
+        summary: city.summary,
+        isFeatured: city.popularity >= 90,
+        isArchived: false
       },
       create: {
         name: city.name,
@@ -153,7 +155,8 @@ async function main() {
         costIndex: city.costIndex,
         popularity: city.popularity,
         imageUrl: city.imageUrl,
-        summary: city.summary
+        summary: city.summary,
+        isFeatured: city.popularity >= 90
       }
     });
 
@@ -167,126 +170,124 @@ async function main() {
         durationHours,
         estimatedCost,
         tags,
-        imageUrl: city.imageUrl
+        imageUrl: city.imageUrl,
+        isFeatured: estimatedCost <= 50
       }))
     });
     cityRecords.set(city.name, record.id);
   }
 
-  const demoUser = await prisma.user.upsert({
-    where: { email: "demo@traveloop.dev" },
-    update: {
-      name: "Demo Traveller",
-      passwordHash: hashPassword("traveloop123")
-    },
-    create: {
-      name: "Demo Traveller",
-      email: "demo@traveloop.dev",
-      passwordHash: hashPassword("traveloop123")
-    }
-  });
-
-  await prisma.trip.deleteMany({
-    where: {
-      ownerId: demoUser.id,
-      name: "Tokyo to Kyoto Sketchbook"
-    }
-  });
-
-  const tokyo = await prisma.city.findUniqueOrThrow({ where: { name_country: { name: "Tokyo", country: "Japan" } } });
-  const kyoto = await prisma.city.findUniqueOrThrow({ where: { name_country: { name: "Kyoto", country: "Japan" } } });
-  const tokyoActivities = await prisma.activity.findMany({ where: { cityId: tokyo.id }, orderBy: { estimatedCost: "asc" } });
-  const kyotoActivities = await prisma.activity.findMany({ where: { cityId: kyoto.id }, orderBy: { estimatedCost: "asc" } });
-
-  const demoTrip = await prisma.trip.create({
-    data: {
-      ownerId: demoUser.id,
-      name: "Tokyo to Kyoto Sketchbook",
-      description: "A first Traveloop demo route with food, temples, budget notes, and a packing board.",
-      startDate: new Date("2026-06-12T00:00:00.000Z"),
-      endDate: new Date("2026-06-18T00:00:00.000Z"),
-      coverPhotoUrl: tokyo.imageUrl,
-      budgetLimit: 1800,
-      isPublic: true,
-      shareSlug: "tokyo-kyoto-sketchbook",
-      stops: {
-        create: [
-          {
-            cityId: cityRecords.get("Tokyo")!,
-            position: 1,
-            startDate: new Date("2026-06-12T00:00:00.000Z"),
-            endDate: new Date("2026-06-14T00:00:00.000Z"),
-            itinerary: {
-              create: [
-                {
-                  activityId: tokyoActivities[0].id,
-                  date: new Date("2026-06-12T00:00:00.000Z"),
-                  startTime: "09:00"
-                },
-                {
-                  activityId: tokyoActivities[1].id,
-                  date: new Date("2026-06-13T00:00:00.000Z"),
-                  startTime: "11:00"
-                }
-              ]
-            }
-          },
-          {
-            cityId: cityRecords.get("Kyoto")!,
-            position: 2,
-            startDate: new Date("2026-06-15T00:00:00.000Z"),
-            endDate: new Date("2026-06-18T00:00:00.000Z"),
-            itinerary: {
-              create: [
-                {
-                  activityId: kyotoActivities[0].id,
-                  date: new Date("2026-06-15T00:00:00.000Z"),
-                  startTime: "07:30"
-                },
-                {
-                  activityId: kyotoActivities[1].id,
-                  date: new Date("2026-06-16T00:00:00.000Z"),
-                  startTime: "10:00"
-                }
-              ]
-            }
-          }
-        ]
+  if (process.env.TRAVELOOP_ADMIN_EMAIL && process.env.TRAVELOOP_ADMIN_PASSWORD) {
+    await prisma.user.upsert({
+      where: { email: process.env.TRAVELOOP_ADMIN_EMAIL.toLowerCase() },
+      update: {
+        role: "ADMIN",
+        passwordHash: hashPassword(process.env.TRAVELOOP_ADMIN_PASSWORD)
       },
-      expenses: {
-        create: [
-          { category: "TRANSPORT" satisfies BudgetCategory, label: "JR pass estimate", amount: 340, date: new Date("2026-06-12T00:00:00.000Z") },
-          { category: "STAY" satisfies BudgetCategory, label: "Hotels and ryokan", amount: 780, date: new Date("2026-06-12T00:00:00.000Z") },
-          { category: "MEALS" satisfies BudgetCategory, label: "Daily food cushion", amount: 360, date: new Date("2026-06-12T00:00:00.000Z") }
-        ]
-      },
-      checklistItems: {
-        create: [
-          { title: "Passport", category: "DOCUMENTS" satisfies ChecklistCategory, isPacked: true },
-          { title: "Universal adapter", category: "ELECTRONICS" satisfies ChecklistCategory },
-          { title: "Light rain jacket", category: "CLOTHING" satisfies ChecklistCategory },
-          { title: "Transit card", category: "MISC" satisfies ChecklistCategory }
-        ]
-      },
-      notes: {
-        create: [
-          {
-            title: "Demo login",
-            body: "Use demo@traveloop.dev / traveloop123 after seeding, or create your own account.",
-            createdAt: new Date("2026-05-10T00:00:00.000Z")
-          },
-          {
-            title: "Shareable route",
-            body: "This demo trip is public at /share/tokyo-kyoto-sketchbook.",
-            createdAt: new Date("2026-05-10T00:00:00.000Z")
-          }
-        ]
+      create: {
+        name: process.env.TRAVELOOP_ADMIN_NAME ?? "Traveloop Admin",
+        email: process.env.TRAVELOOP_ADMIN_EMAIL.toLowerCase(),
+        role: "ADMIN",
+        passwordHash: hashPassword(process.env.TRAVELOOP_ADMIN_PASSWORD)
       }
-    }
-  });
+    });
+  }
 
-  console.log(`Seeded ${cities.length} cities, ${cities.length * 3} activities, and demo trip ${demoTrip.id}.`);
-  console.log("Demo login: demo@traveloop.dev / traveloop123");
+  if (process.env.TRAVELOOP_SEED_SHOWCASE === "true" && process.env.TRAVELOOP_SHOWCASE_PASSWORD) {
+    const sampleUser = await prisma.user.upsert({
+      where: { email: "traveller@example.com" },
+      update: {
+        name: "Sample Traveller",
+        passwordHash: hashPassword(process.env.TRAVELOOP_SHOWCASE_PASSWORD)
+      },
+      create: {
+        name: "Sample Traveller",
+        email: "traveller@example.com",
+        passwordHash: hashPassword(process.env.TRAVELOOP_SHOWCASE_PASSWORD)
+      }
+    });
+
+    await prisma.trip.deleteMany({
+      where: {
+        ownerId: sampleUser.id,
+        name: "Tokyo to Kyoto Sketchbook"
+      }
+    });
+
+    const tokyo = await prisma.city.findUniqueOrThrow({ where: { name_country: { name: "Tokyo", country: "Japan" } } });
+    const kyoto = await prisma.city.findUniqueOrThrow({ where: { name_country: { name: "Kyoto", country: "Japan" } } });
+    const tokyoActivities = await prisma.activity.findMany({ where: { cityId: tokyo.id }, orderBy: { estimatedCost: "asc" } });
+    const kyotoActivities = await prisma.activity.findMany({ where: { cityId: kyoto.id }, orderBy: { estimatedCost: "asc" } });
+
+    await prisma.trip.create({
+      data: {
+        ownerId: sampleUser.id,
+        name: "Tokyo to Kyoto Sketchbook",
+        description: "Food counters, temple mornings, rail days, and a calm Kyoto finish.",
+        startDate: new Date("2026-06-12T00:00:00.000Z"),
+        endDate: new Date("2026-06-18T00:00:00.000Z"),
+        coverPhotoUrl: tokyo.imageUrl,
+        budgetLimit: 1800,
+        isPublic: true,
+        visibility: "PUBLIC",
+        shareSlug: "tokyo-kyoto-sketchbook",
+        stops: {
+          create: [
+            {
+              cityId: cityRecords.get("Tokyo")!,
+              position: 1,
+              startDate: new Date("2026-06-12T00:00:00.000Z"),
+              endDate: new Date("2026-06-14T00:00:00.000Z"),
+              itinerary: {
+                create: [
+                  { activityId: tokyoActivities[0].id, date: new Date("2026-06-12T00:00:00.000Z"), startTime: "09:00" },
+                  { activityId: tokyoActivities[1].id, date: new Date("2026-06-13T00:00:00.000Z"), startTime: "11:00" }
+                ]
+              }
+            },
+            {
+              cityId: cityRecords.get("Kyoto")!,
+              position: 2,
+              startDate: new Date("2026-06-15T00:00:00.000Z"),
+              endDate: new Date("2026-06-18T00:00:00.000Z"),
+              itinerary: {
+                create: [
+                  { activityId: kyotoActivities[0].id, date: new Date("2026-06-15T00:00:00.000Z"), startTime: "07:30" },
+                  { activityId: kyotoActivities[1].id, date: new Date("2026-06-16T00:00:00.000Z"), startTime: "10:00" }
+                ]
+              }
+            }
+          ]
+        },
+        expenses: {
+          create: [
+            { category: "TRANSPORT" satisfies BudgetCategory, label: "Rail pass estimate", amount: 340, vendor: "Rail operator", quantity: 1, unitCost: 340, paidStatus: "PARTIAL", date: new Date("2026-06-12T00:00:00.000Z") },
+            { category: "STAY" satisfies BudgetCategory, label: "Hotels and ryokan", amount: 780, vendor: "Lodging", quantity: 6, unitCost: 130, paidStatus: "UNPAID", date: new Date("2026-06-12T00:00:00.000Z") },
+            { category: "MEALS" satisfies BudgetCategory, label: "Daily food cushion", amount: 360, vendor: "Various", quantity: 6, unitCost: 60, paidStatus: "UNPAID", date: new Date("2026-06-12T00:00:00.000Z") }
+          ]
+        },
+        checklistItems: {
+          create: [
+            { title: "Passport", category: "DOCUMENTS" satisfies ChecklistCategory, isPacked: true },
+            { title: "Universal adapter", category: "ELECTRONICS" satisfies ChecklistCategory },
+            { title: "Light rain jacket", category: "CLOTHING" satisfies ChecklistCategory },
+            { title: "Transit card", category: "MISC" satisfies ChecklistCategory }
+          ]
+        },
+        notes: {
+          create: [
+            {
+              title: "Hotel check-in",
+              body: "Keep reservation details and late arrival notes here.",
+              createdAt: new Date("2026-05-10T00:00:00.000Z")
+            }
+          ]
+        }
+      }
+    });
+  }
+
+  console.log(`Loaded ${cities.length} cities and ${cities.length * 3} activities.`);
 }
 
 main()

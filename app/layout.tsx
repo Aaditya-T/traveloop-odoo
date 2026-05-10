@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { AppToaster } from "@/components/app-toaster";
+import { SearchParamsToastsBoundary } from "@/components/search-params-toasts-boundary";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -9,7 +11,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        <AppToaster />
+        <SearchParamsToastsBoundary />
+      </body>
     </html>
   );
 }

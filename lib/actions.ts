@@ -1,10 +1,12 @@
 "use server";
 
-import { BudgetCategory, ChecklistCategory } from "@prisma/client";
+import { randomBytes } from "node:crypto";
+import { ActivityCategory, BudgetCategory, ChecklistCategory, PaymentStatus, Prisma, TripVisibility } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { clearSession, createSession, hashPassword, requireUser, verifyPassword } from "@/lib/auth";
+import { clearSession, createSession, hashPassword, requireAdmin, requireUser, verifyPassword } from "@/lib/auth";
 import { parseFormDate } from "@/lib/date";
+import { deriveExpenseAmount } from "@/lib/invoice";
 import { prisma } from "@/lib/prisma";
 
 function text(formData: FormData, key: string, fallback = "") {
@@ -17,12 +19,24 @@ function numberValue(formData: FormData, key: string, fallback = 0) {
   return Number.isFinite(value) ? value : fallback;
 }
 
+function checkbox(formData: FormData, key: string) {
+  return formData.get(key) === "on";
+}
+
+function enumValue<T extends string>(value: string, values: readonly T[], fallback: T) {
+  return values.includes(value as T) ? (value as T) : fallback;
+}
+
 function slugify(value: string) {
   return value
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 48);
+}
+
+function publicSlug(name: string) {
+  return `${slugify(name) || "trip"}-${randomBytes(3).toString("hex")}`;
 }
 
 export async function signUpAction(formData: FormData) {
@@ -76,6 +90,7 @@ export async function createTripAction(formData: FormData) {
   const startDate = parseFormDate(formData.get("startDate"));
   const endDate = parseFormDate(formData.get("endDate"), startDate);
   const budgetLimit = numberValue(formData, "budgetLimit");
+  const visibility = enumValue(text(formData, "visibility"), Object.values(TripVisibility), user.defaultTripVisibility);
 
   if (!name) {
     redirect("/trips/new?error=Trip%20name%20is%20required");
@@ -89,31 +104,53 @@ export async function createTripAction(formData: FormData) {
       coverPhotoUrl: text(formData, "coverPhotoUrl"),
       startDate,
       endDate,
-      budgetLimit
+      budgetLimit,
+      visibility,
+      isPublic: visibility === "PUBLIC",
+      shareSlug: visibility === "PRIVATE" ? null : publicSlug(name)
     }
   });
 
   redirect(`/trips/${trip.id}/builder`);
 }
 
-export async function updateTripAction(formData: FormData) {
-  const user = await requireUser();
-  const tripId = text(formData, "tripId");
+export type ActionResult = { ok: true } | { ok: false; message: string };
 
-  await prisma.trip.update({
-    where: { id: tripId, ownerId: user.id },
-    data: {
-      name: text(formData, "name"),
-      description: text(formData, "description"),
-      coverPhotoUrl: text(formData, "coverPhotoUrl"),
-      startDate: parseFormDate(formData.get("startDate")),
-      endDate: parseFormDate(formData.get("endDate")),
-      budgetLimit: numberValue(formData, "budgetLimit")
+export async function updateTripFormAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  try {
+    const user = await requireUser();
+    const tripId = text(formData, "tripId");
+    const trip = await prisma.trip.findUnique({ where: { id: tripId, ownerId: user.id } });
+    const visibility = enumValue(text(formData, "visibility"), Object.values(TripVisibility), "PRIVATE");
+
+    if (!trip) {
+      return { ok: false, message: "Trip not found." };
     }
-  });
 
-  revalidatePath(`/trips/${tripId}`);
-  redirect(`/trips/${tripId}`);
+    await prisma.trip.update({
+      where: { id: tripId, ownerId: user.id },
+      data: {
+        name: text(formData, "name"),
+        description: text(formData, "description"),
+        coverPhotoUrl: text(formData, "coverPhotoUrl"),
+        startDate: parseFormDate(formData.get("startDate")),
+        endDate: parseFormDate(formData.get("endDate")),
+        budgetLimit: numberValue(formData, "budgetLimit"),
+        visibility,
+        isPublic: visibility === "PUBLIC",
+        shareSlug: visibility === "PRIVATE" ? trip.shareSlug : trip.shareSlug ?? `${slugify(trip.name)}-${trip.id.slice(-6)}`
+      }
+    });
+
+    revalidatePath(`/trips/${tripId}`);
+    revalidatePath("/dashboard");
+    return { ok: true };
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+      return { ok: false, message: "Could not update trip. Check your inputs." };
+    }
+    return { ok: false, message: "Something went wrong while saving." };
+  }
 }
 
 export async function deleteTripAction(formData: FormData) {
@@ -243,6 +280,8 @@ export async function addExpenseAction(formData: FormData) {
   const user = await requireUser();
   const tripId = text(formData, "tripId");
   const category = text(formData, "category") as BudgetCategory;
+  const quantity = Math.max(numberValue(formData, "quantity", 1), 1);
+  const unitCost = numberValue(formData, "unitCost");
   const trip = await prisma.trip.findUnique({
     where: { id: tripId, ownerId: user.id },
     select: { id: true }
@@ -257,7 +296,12 @@ export async function addExpenseAction(formData: FormData) {
       tripId,
       category,
       label: text(formData, "label"),
-      amount: numberValue(formData, "amount"),
+      amount: deriveExpenseAmount(quantity, unitCost),
+      vendor: text(formData, "vendor") || null,
+      quantity,
+      unitCost,
+      paidStatus: enumValue(text(formData, "paidStatus"), Object.values(PaymentStatus), "UNPAID"),
+      receiptUrl: text(formData, "receiptUrl") || null,
       date: parseFormDate(formData.get("date"))
     }
   });
@@ -373,12 +417,13 @@ export async function publishTripAction(formData: FormData) {
     where: { id: tripId, ownerId: user.id },
     data: {
       isPublic: true,
+      visibility: "PUBLIC",
       shareSlug
     }
   });
 
   revalidatePath(`/trips/${tripId}`);
-  redirect(`/trips/${tripId}`);
+  redirect(`/trips/${tripId}?toast=published`);
 }
 
 export async function unpublishTripAction(formData: FormData) {
@@ -387,8 +432,324 @@ export async function unpublishTripAction(formData: FormData) {
 
   await prisma.trip.update({
     where: { id: tripId, ownerId: user.id },
-    data: { isPublic: false }
+    data: { isPublic: false, visibility: "PRIVATE" }
   });
 
   revalidatePath(`/trips/${tripId}`);
+  redirect(`/trips/${tripId}?toast=private`);
+}
+
+export async function updateTripVisibilityAction(formData: FormData) {
+  const user = await requireUser();
+  const tripId = text(formData, "tripId");
+  const visibility = enumValue(text(formData, "visibility"), Object.values(TripVisibility), "PRIVATE");
+  const trip = await prisma.trip.findUnique({ where: { id: tripId, ownerId: user.id } });
+
+  if (!trip) {
+    redirect("/trips");
+  }
+
+  await prisma.trip.update({
+    where: { id: tripId, ownerId: user.id },
+    data: {
+      visibility,
+      isPublic: visibility === "PUBLIC",
+      shareSlug: visibility === "PRIVATE" ? trip.shareSlug : trip.shareSlug ?? `${slugify(trip.name)}-${trip.id.slice(-6)}`
+    }
+  });
+
+  revalidatePath(`/trips/${tripId}`);
+  revalidatePath("/community");
+}
+
+export async function updateProfileFormAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  try {
+    const user = await requireUser();
+    const email = text(formData, "email").toLowerCase();
+    const visibility = enumValue(text(formData, "defaultTripVisibility"), Object.values(TripVisibility), "PRIVATE");
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        name: text(formData, "name"),
+        email,
+        photoUrl: text(formData, "photoUrl") || null,
+        phone: text(formData, "phone") || null,
+        bio: text(formData, "bio") || null,
+        homeCity: text(formData, "homeCity") || null,
+        homeCountry: text(formData, "homeCountry") || null,
+        language: text(formData, "language", "en") || "en",
+        defaultTripVisibility: visibility
+      }
+    });
+
+    revalidatePath("/settings");
+    revalidatePath("/dashboard");
+    return { ok: true };
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      return { ok: false, message: "That email is already in use." };
+    }
+    return { ok: false, message: "Could not save profile. Try again." };
+  }
+}
+
+export async function changePasswordAction(formData: FormData) {
+  const user = await requireUser();
+  const currentPassword = text(formData, "currentPassword");
+  const nextPassword = text(formData, "nextPassword");
+  const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
+
+  if (!dbUser || !(await verifyPassword(currentPassword, dbUser.passwordHash)) || nextPassword.length < 8) {
+    redirect("/settings?password=invalid");
+  }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordHash: await hashPassword(nextPassword) }
+  });
+
+  redirect("/settings?password=updated");
+}
+
+export async function deleteAccountAction(formData: FormData) {
+  const user = await requireUser();
+  const confirmation = text(formData, "confirmation").toLowerCase();
+
+  if (confirmation !== user.email.toLowerCase()) {
+    redirect("/settings?delete=confirm-email");
+  }
+
+  await prisma.user.delete({ where: { id: user.id } });
+  await clearSession();
+  redirect("/signup");
+}
+
+export async function toggleLikeTripAction(formData: FormData) {
+  const user = await requireUser();
+  const tripId = text(formData, "tripId");
+  const existing = await prisma.tripLike.findUnique({ where: { userId_tripId: { userId: user.id, tripId } } });
+
+  if (existing) {
+    await prisma.tripLike.delete({ where: { id: existing.id } });
+  } else {
+    await prisma.tripLike.create({ data: { userId: user.id, tripId } });
+  }
+
+  revalidatePath("/community");
+  revalidatePath(`/trips/${tripId}`);
+}
+
+export async function toggleSaveTripAction(formData: FormData) {
+  const user = await requireUser();
+  const tripId = text(formData, "tripId");
+  const existing = await prisma.tripSave.findUnique({ where: { userId_tripId: { userId: user.id, tripId } } });
+
+  if (existing) {
+    await prisma.tripSave.delete({ where: { id: existing.id } });
+  } else {
+    await prisma.tripSave.create({ data: { userId: user.id, tripId } });
+  }
+
+  revalidatePath("/community");
+  revalidatePath("/settings");
+}
+
+export async function addCommunityCommentAction(formData: FormData) {
+  const user = await requireUser();
+  const tripId = text(formData, "tripId");
+  const body = text(formData, "body");
+  const trip = await prisma.trip.findFirst({
+    where: { id: tripId, OR: [{ visibility: "PUBLIC" }, { isPublic: true }] },
+    select: { id: true }
+  });
+
+  if (trip && body.length >= 2) {
+    await prisma.tripComment.create({ data: { userId: user.id, tripId, body: body.slice(0, 600) } });
+  }
+
+  revalidatePath("/community");
+}
+
+export async function copyPublicTripAction(formData: FormData) {
+  const user = await requireUser();
+  const tripId = text(formData, "tripId");
+  const source = await prisma.trip.findFirst({
+    where: { id: tripId, OR: [{ visibility: "PUBLIC" }, { isPublic: true }] },
+    include: {
+      stops: { orderBy: { position: "asc" }, include: { itinerary: true } },
+      expenses: true,
+      checklistItems: true,
+      notes: true
+    }
+  });
+
+  if (!source) {
+    redirect("/community");
+  }
+
+  const copiedTrip = await prisma.$transaction(async (tx) => {
+    const trip = await tx.trip.create({
+      data: {
+        ownerId: user.id,
+        sourceTripId: source.id,
+        name: `${source.name} copy`,
+        description: source.description,
+        startDate: source.startDate,
+        endDate: source.endDate,
+        coverPhotoUrl: source.coverPhotoUrl,
+        budgetLimit: source.budgetLimit,
+        visibility: "PRIVATE",
+        isPublic: false
+      }
+    });
+    const stopMap = new Map<string, string>();
+
+    for (const stop of source.stops) {
+      const createdStop = await tx.tripStop.create({
+        data: {
+          tripId: trip.id,
+          cityId: stop.cityId,
+          position: stop.position,
+          startDate: stop.startDate,
+          endDate: stop.endDate,
+          notes: stop.notes,
+          itinerary: {
+            create: stop.itinerary.map((item) => ({
+              activityId: item.activityId,
+              date: item.date,
+              startTime: item.startTime,
+              costOverride: item.costOverride,
+              notes: item.notes
+            }))
+          }
+        }
+      });
+      stopMap.set(stop.id, createdStop.id);
+    }
+
+    if (source.expenses.length) {
+      await tx.tripExpense.createMany({
+        data: source.expenses.map((expense) => ({
+          tripId: trip.id,
+          stopId: expense.stopId ? stopMap.get(expense.stopId) ?? null : null,
+          category: expense.category,
+          label: expense.label,
+          amount: expense.amount,
+          vendor: expense.vendor,
+          quantity: expense.quantity,
+          unitCost: expense.unitCost,
+          paidStatus: expense.paidStatus,
+          receiptUrl: expense.receiptUrl,
+          date: expense.date
+        }))
+      });
+    }
+    if (source.checklistItems.length) {
+      await tx.packingItem.createMany({
+        data: source.checklistItems.map((item) => ({
+          tripId: trip.id,
+          title: item.title,
+          category: item.category,
+          isPacked: false
+        }))
+      });
+    }
+    if (source.notes.length) {
+      await tx.tripNote.createMany({
+        data: source.notes.map((note) => ({
+          tripId: trip.id,
+          stopId: note.stopId ? stopMap.get(note.stopId) ?? null : null,
+          title: note.title,
+          body: note.body
+        }))
+      });
+    }
+
+    return trip;
+  });
+
+  redirect(`/trips/${copiedTrip.id}?toast=copied`);
+}
+
+export async function upsertCityAction(formData: FormData) {
+  await requireAdmin();
+  const cityId = text(formData, "cityId");
+  const data = {
+    name: text(formData, "name"),
+    country: text(formData, "country"),
+    region: text(formData, "region"),
+    costIndex: numberValue(formData, "costIndex", 3),
+    popularity: numberValue(formData, "popularity", 50),
+    imageUrl: text(formData, "imageUrl"),
+    summary: text(formData, "summary"),
+    isFeatured: checkbox(formData, "isFeatured"),
+    isArchived: checkbox(formData, "isArchived")
+  };
+
+  if (cityId) {
+    await prisma.city.update({ where: { id: cityId }, data });
+  } else {
+    await prisma.city.create({ data });
+  }
+
+  revalidatePath("/admin/catalog");
+  revalidatePath("/dashboard");
+}
+
+export async function upsertActivityAction(formData: FormData) {
+  await requireAdmin();
+  const activityId = text(formData, "activityId");
+  const data = {
+    cityId: text(formData, "cityId"),
+    name: text(formData, "name"),
+    category: enumValue(text(formData, "category"), Object.values(ActivityCategory), "SIGHTSEEING"),
+    description: text(formData, "description"),
+    durationHours: Math.max(numberValue(formData, "durationHours", 2), 1),
+    estimatedCost: numberValue(formData, "estimatedCost"),
+    imageUrl: text(formData, "imageUrl"),
+    tags: text(formData, "tags")
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter(Boolean),
+    isFeatured: checkbox(formData, "isFeatured"),
+    isArchived: checkbox(formData, "isArchived")
+  };
+
+  if (activityId) {
+    await prisma.activity.update({ where: { id: activityId }, data });
+  } else {
+    await prisma.activity.create({ data });
+  }
+
+  revalidatePath("/admin/catalog");
+  revalidatePath("/community");
+}
+
+export async function completeTutorialAction() {
+  const user = await requireUser();
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      hasCompletedOnboarding: true,
+      tutorialStep: 0
+    }
+  });
+
+  revalidatePath("/dashboard");
+}
+
+export async function restartTutorialAction() {
+  const user = await requireUser();
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      hasCompletedOnboarding: false,
+      tutorialStep: 0
+    }
+  });
+
+  revalidatePath("/dashboard");
 }

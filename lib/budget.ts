@@ -1,7 +1,8 @@
 import type { Activity, BudgetCategory, ItineraryItem, TripExpense } from "@prisma/client";
 import { daysBetweenInclusive } from "@/lib/date";
+import { invoiceLineAmount } from "@/lib/invoice";
 
-export type ExpenseLike = Pick<TripExpense, "category" | "amount">;
+export type ExpenseLike = Pick<TripExpense, "category" | "amount" | "quantity" | "unitCost" | "paidStatus">;
 export type ActivityCostLike = Pick<ItineraryItem, "costOverride"> & {
   activity: Pick<Activity, "estimatedCost">;
 };
@@ -19,14 +20,14 @@ export function totalActivityCost(items: ActivityCostLike[]) {
 }
 
 export function totalExpenseCost(expenses: ExpenseLike[]) {
-  return expenses.reduce((sum, expense) => sum + expense.amount, 0);
+  return expenses.reduce((sum, expense) => sum + invoiceLineAmount(expense), 0);
 }
 
 export function budgetByCategory(expenses: ExpenseLike[], activityCost = 0) {
   const totals = new Map<BudgetCategory, number>();
 
   for (const expense of expenses) {
-    totals.set(expense.category, (totals.get(expense.category) ?? 0) + expense.amount);
+    totals.set(expense.category, (totals.get(expense.category) ?? 0) + invoiceLineAmount(expense));
   }
 
   totals.set("ACTIVITIES", (totals.get("ACTIVITIES") ?? 0) + activityCost);

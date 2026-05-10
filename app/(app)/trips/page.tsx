@@ -46,6 +46,7 @@ export default async function TripsPage() {
                   <MapPin className="h-4 w-4 text-coral" />
                   {trip.stops.length ? trip.stops.map((stop) => stop.city.name).join(" -> ") : "No stops yet"}
                 </p>
+                <span className="stamp justify-self-start">{trip.visibility.toLowerCase()}</span>
                 <div className="flex flex-wrap gap-2">
                   <Link className="btn-secondary" href={`/trips/${trip.id}`}>
                     View

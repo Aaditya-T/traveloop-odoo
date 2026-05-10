@@ -1,7 +1,10 @@
-import { CalendarDays, Copy, Globe2, Pencil, Send, Trash2 } from "lucide-react";
+import { CalendarDays, Globe2, Send, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { CopyShareButton } from "@/components/copy-share-button";
+import { SubmitButton } from "@/components/submit-button";
+import { TripDetailsForm, type TripDetails } from "@/components/trip-details-form";
 import { TripNav } from "@/components/trip-nav";
-import { deleteItineraryItemAction, publishTripAction, unpublishTripAction, updateTripAction } from "@/lib/actions";
+import { deleteItineraryItemAction, publishTripAction, unpublishTripAction } from "@/lib/actions";
 import { requireUser } from "@/lib/auth";
 import { money, totalActivityCost, totalExpenseCost } from "@/lib/budget";
 import { formatDate, htmlDate } from "@/lib/date";
@@ -39,7 +42,19 @@ export default async function TripPage({ params }: { params: Promise<{ tripId: s
   const days = groupItineraryByDay(trip.stops);
   const activityCost = totalActivityCost(trip.stops.flatMap((stop) => stop.itinerary));
   const totalCost = activityCost + totalExpenseCost(trip.expenses);
-  const shareUrl = trip.shareSlug ? `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/share/${trip.shareSlug}` : null;
+  const hasPublicLink = trip.visibility !== "PRIVATE" && trip.shareSlug;
+  const shareUrl = hasPublicLink ? `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/share/${trip.shareSlug}` : null;
+
+  const tripDetails: TripDetails = {
+    id: trip.id,
+    name: trip.name,
+    startDateInput: htmlDate(trip.startDate),
+    endDateInput: htmlDate(trip.endDate),
+    budgetLimit: trip.budgetLimit,
+    visibility: trip.visibility,
+    coverPhotoUrl: trip.coverPhotoUrl,
+    description: trip.description
+  };
 
   return (
     <div className="grid gap-6">
@@ -61,35 +76,30 @@ export default async function TripPage({ params }: { params: Promise<{ tripId: s
           <div className="grid content-start gap-3">
             <TripNav tripId={trip.id} />
             <div className="flex flex-wrap gap-2">
-              {trip.isPublic && shareUrl ? (
+              {shareUrl ? (
                 <>
                   <Link className="btn-secondary" href={`/share/${trip.shareSlug}`}>
                     <Globe2 className="h-4 w-4" />
-                    Public View
+                    Share View
                   </Link>
                   <form action={unpublishTripAction}>
                     <input name="tripId" type="hidden" value={trip.id} />
-                    <button className="btn-ghost" type="submit">
-                      Unpublish
-                    </button>
+                    <SubmitButton className="btn-ghost" pendingLabel="Updating…" type="submit">
+                      Make private
+                    </SubmitButton>
                   </form>
                 </>
               ) : (
                 <form action={publishTripAction}>
                   <input name="tripId" type="hidden" value={trip.id} />
-                  <button className="btn-secondary" type="submit">
+                  <SubmitButton className="btn-secondary" pendingLabel="Publishing…" type="submit">
                     <Send className="h-4 w-4" />
                     Make Shareable
-                  </button>
+                  </SubmitButton>
                 </form>
               )}
             </div>
-            {shareUrl ? (
-              <div className="border-2 border-ink bg-white p-3 text-xs font-bold text-ink/70" style={{ borderRadius: 8 }}>
-                <Copy className="mr-2 inline h-4 w-4" />
-                {shareUrl}
-              </div>
-            ) : null}
+            {shareUrl ? <CopyShareButton url={shareUrl} /> : null}
           </div>
         </div>
       </section>
@@ -154,42 +164,7 @@ export default async function TripPage({ params }: { params: Promise<{ tripId: s
           )}
         </div>
 
-        <form action={updateTripAction} className="sketch-panel grid content-start gap-4 p-5">
-          <div className="flex items-center gap-2">
-            <Pencil className="h-5 w-5 text-coral" />
-            <h2 className="text-2xl font-black text-ink">Trip details</h2>
-          </div>
-          <input name="tripId" type="hidden" value={trip.id} />
-          <label className="grid gap-2">
-            <span className="label">Name</span>
-            <input className="input" name="name" defaultValue={trip.name} required />
-          </label>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="grid gap-2">
-              <span className="label">Start</span>
-              <input className="input" name="startDate" type="date" defaultValue={htmlDate(trip.startDate)} required />
-            </label>
-            <label className="grid gap-2">
-              <span className="label">End</span>
-              <input className="input" name="endDate" type="date" defaultValue={htmlDate(trip.endDate)} required />
-            </label>
-          </div>
-          <label className="grid gap-2">
-            <span className="label">Budget limit</span>
-            <input className="input" name="budgetLimit" type="number" defaultValue={trip.budgetLimit} min={0} />
-          </label>
-          <label className="grid gap-2">
-            <span className="label">Cover photo URL</span>
-            <input className="input" name="coverPhotoUrl" defaultValue={trip.coverPhotoUrl ?? ""} />
-          </label>
-          <label className="grid gap-2">
-            <span className="label">Description</span>
-            <textarea className="input min-h-28" name="description" defaultValue={trip.description ?? ""} />
-          </label>
-          <button className="btn-primary" type="submit">
-            Save details
-          </button>
-        </form>
+        <TripDetailsForm trip={tripDetails} />
       </section>
     </div>
   );

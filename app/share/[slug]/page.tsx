@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
 export default async function PublicSharePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const trip = await prisma.trip.findFirst({
-    where: { shareSlug: slug, isPublic: true },
+    where: { shareSlug: slug, OR: [{ visibility: "PUBLIC" }, { visibility: "UNLISTED" }, { isPublic: true }] },
     include: {
       owner: { select: { name: true } },
       stops: {

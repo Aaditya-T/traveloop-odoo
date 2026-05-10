@@ -34,16 +34,44 @@ enum ChecklistCategory {
   MISC
 }
 
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum TripVisibility {
+  PRIVATE
+  UNLISTED
+  PUBLIC
+}
+
+enum PaymentStatus {
+  UNPAID
+  PARTIAL
+  PAID
+}
+
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  passwordHash String
-  photoUrl     String?
-  language     String   @default("en")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  trips        Trip[]
+  id                    String          @id @default(cuid())
+  name                  String
+  email                 String          @unique
+  passwordHash          String
+  role                  UserRole        @default(USER)
+  photoUrl              String?
+  phone                 String?
+  bio                   String?
+  homeCity              String?
+  homeCountry           String?
+  language              String          @default("en")
+  defaultTripVisibility TripVisibility  @default(PRIVATE)
+  hasCompletedOnboarding Boolean        @default(false)
+  tutorialStep          Int             @default(0)
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  trips                 Trip[]
+  likedTrips            TripLike[]
+  savedTrips            TripSave[]
+  comments              TripComment[]
 }
 
 model Trip {
@@ -56,16 +84,25 @@ model Trip {
   coverPhotoUrl  String?
   budgetLimit    Int          @default(0)
   isPublic       Boolean      @default(false)
+  visibility     TripVisibility @default(PRIVATE)
   shareSlug      String?      @unique
+  sourceTripId   String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   owner          User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  sourceTrip     Trip?        @relation("TripCopies", fields: [sourceTripId], references: [id], onDelete: SetNull)
+  copiedTrips    Trip[]       @relation("TripCopies")
   stops          TripStop[]
   expenses       TripExpense[]
   notes          TripNote[]
   checklistItems PackingItem[]
+  likes          TripLike[]
+  saves          TripSave[]
+  comments       TripComment[]
 
   @@index([ownerId])
+  @@index([visibility])
+  @@index([sourceTripId])
 }
 
 model City {
@@ -77,11 +114,15 @@ model City {
   popularity Int
   imageUrl   String
   summary    String
+  isFeatured Boolean    @default(false)
+  isArchived Boolean    @default(false)
   stops      TripStop[]
   activities Activity[]
 
   @@unique([name, country])
   @@index([region])
+  @@index([isFeatured])
+  @@index([isArchived])
 }
 
 model Activity {
@@ -94,11 +135,15 @@ model Activity {
   estimatedCost Int
   imageUrl      String
   tags          String[]
+  isFeatured    Boolean          @default(false)
+  isArchived    Boolean          @default(false)
   city          City             @relation(fields: [cityId], references: [id], onDelete: Cascade)
   itinerary     ItineraryItem[]
 
   @@index([cityId])
   @@index([category])
+  @@index([isFeatured])
+  @@index([isArchived])
 }
 
 model TripStop {
@@ -140,6 +185,11 @@ model TripExpense {
   category  BudgetCategory
   label     String
   amount    Int
+  vendor    String?
+  quantity  Int            @default(1)
+  unitCost  Int?
+  paidStatus PaymentStatus @default(UNPAID)
+  receiptUrl String?
   date      DateTime?
   createdAt DateTime       @default(now())
   trip      Trip           @relation(fields: [tripId], references: [id], onDelete: Cascade)
@@ -173,4 +223,41 @@ model TripNote {
   stop      TripStop? @relation(fields: [stopId], references: [id], onDelete: SetNull)
 
   @@index([tripId])
+}
+
+model TripLike {
+  id        String   @id @default(cuid())
+  userId    String
+  tripId    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tripId])
+  @@index([tripId])
+}
+
+model TripSave {
+  id        String   @id @default(cuid())
+  userId    String
+  tripId    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tripId])
+  @@index([tripId])
+}
+
+model TripComment {
+  id        String   @id @default(cuid())
+  userId    String
+  tripId    String
+  body      String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId, createdAt])
+  @@index([userId])
 }

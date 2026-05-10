@@ -94,8 +94,16 @@ export async function getCurrentUser() {
       id: true,
       name: true,
       email: true,
+      role: true,
       photoUrl: true,
-      language: true
+      phone: true,
+      bio: true,
+      homeCity: true,
+      homeCountry: true,
+      language: true,
+      defaultTripVisibility: true,
+      hasCompletedOnboarding: true,
+      tutorialStep: true
     }
   });
 }
@@ -105,6 +113,16 @@ export async function requireUser() {
 
   if (!user) {
     redirect("/login");
+  }
+
+  return user;
+}
+
+export async function requireAdmin() {
+  const user = await requireUser();
+
+  if (user.role !== "ADMIN") {
+    redirect("/dashboard");
   }
 
   return user;

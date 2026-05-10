@@ -1,4 +1,5 @@
-import { ImagePlus, WalletCards } from "lucide-react";
+import { Eye, ImagePlus, WalletCards } from "lucide-react";
+import { TripVisibility } from "@prisma/client";
 import { createTripAction } from "@/lib/actions";
 import { htmlDate } from "@/lib/date";
 
@@ -48,6 +49,17 @@ export default function NewTripPage() {
             </span>
           </label>
         </div>
+        <label className="grid gap-2">
+          <span className="label">Default visibility</span>
+          <span className="relative">
+            <Eye className="pointer-events-none absolute left-3 top-2.5 h-5 w-5 text-ink/45" />
+            <select className="input pl-10" name="visibility" defaultValue={TripVisibility.PRIVATE}>
+              <option value="PRIVATE">Private workspace</option>
+              <option value="UNLISTED">Unlisted share link</option>
+              <option value="PUBLIC">Community public</option>
+            </select>
+          </span>
+        </label>
         <button className="btn-primary" type="submit">
           Save and open builder
         </button>

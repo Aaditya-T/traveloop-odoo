@@ -19,14 +19,14 @@ export default async function DashboardPage() {
         expenses: true
       }
     }),
-    prisma.city.findMany({ orderBy: { popularity: "desc" }, take: 4, include: { activities: { take: 2 } } })
+    prisma.city.findMany({ where: { isArchived: false }, orderBy: [{ isFeatured: "desc" }, { popularity: "desc" }], take: 4, include: { activities: { where: { isArchived: false }, take: 2 } } })
   ]);
 
   return (
     <AnimatedPage>
       <div className="grid gap-8">
         <section className="grid gap-6 lg:grid-cols-[1.4fr_0.8fr] lg:items-stretch">
-          <div className="sketch-panel doodle-map relative overflow-hidden p-6 sm:p-8">
+          <div className="sketch-panel doodle-map relative overflow-hidden p-6 sm:p-8" data-tour="dashboard-hero">
             <div className="stamp">today&apos;s travel desk</div>
             <h1 className="mt-5 max-w-3xl text-4xl font-black leading-tight text-ink sm:text-6xl">
               Hey {user.name.split(" ")[0]}, where are we looping next?
@@ -51,7 +51,7 @@ export default async function DashboardPage() {
               <p className="mt-3 text-5xl font-black">{trips.length}</p>
             </div>
             <div className="soft-panel bg-ticket p-5 text-ink">
-              <p className="text-sm font-black uppercase">Seeded ideas</p>
+              <p className="text-sm font-black uppercase">Curated ideas</p>
               <p className="mt-3 text-5xl font-black">{cities.length * 2}+</p>
             </div>
           </div>
@@ -110,7 +110,7 @@ export default async function DashboardPage() {
         <section className="grid gap-4">
           <div>
             <p className="label">Inspiration shelf</p>
-            <h2 className="text-3xl font-black text-ink">Popular cities to seed a route</h2>
+            <h2 className="text-3xl font-black text-ink">Popular cities to start a route</h2>
           </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {cities.map((city) => (

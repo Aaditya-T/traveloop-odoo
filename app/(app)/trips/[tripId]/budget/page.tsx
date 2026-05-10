@@ -1,5 +1,5 @@
-import { BudgetCategory } from "@prisma/client";
-import { CircleDollarSign, Plus, Trash2 } from "lucide-react";
+import { BudgetCategory, PaymentStatus } from "@prisma/client";
+import { CircleDollarSign, Plus, Receipt, Trash2 } from "lucide-react";
 import { TripNav } from "@/components/trip-nav";
 import { addExpenseAction, deleteExpenseAction } from "@/lib/actions";
 import { requireUser } from "@/lib/auth";
@@ -8,6 +8,7 @@ import { formatDate, htmlDate } from "@/lib/date";
 import { prisma } from "@/lib/prisma";
 
 const categories = Object.values(BudgetCategory);
+const statuses = Object.values(PaymentStatus);
 
 export default async function BudgetPage({ params }: { params: Promise<{ tripId: string }> }) {
   const user = await requireUser();
@@ -87,7 +88,7 @@ export default async function BudgetPage({ params }: { params: Promise<{ tripId:
           </div>
         </div>
 
-        <form action={addExpenseAction} className="sketch-panel doodle-map grid content-start gap-4 p-5">
+        <form action={addExpenseAction} className="sketch-panel doodle-map grid content-start gap-4 p-5" data-tour="budget-form">
           <div className="flex items-center gap-2">
             <Plus className="h-5 w-5 text-coral" />
             <h2 className="text-2xl font-black">Add expense</h2>
@@ -96,6 +97,10 @@ export default async function BudgetPage({ params }: { params: Promise<{ tripId:
           <label className="grid gap-2">
             <span className="label">Label</span>
             <input className="input" name="label" placeholder="Train pass" required />
+          </label>
+          <label className="grid gap-2">
+            <span className="label">Vendor</span>
+            <input className="input" name="vendor" placeholder="Rail, hotel, tour operator..." />
           </label>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="grid gap-2">
@@ -109,8 +114,26 @@ export default async function BudgetPage({ params }: { params: Promise<{ tripId:
               </select>
             </label>
             <label className="grid gap-2">
-              <span className="label">Amount</span>
-              <input className="input" name="amount" type="number" min="0" step="1" required />
+              <span className="label">Quantity</span>
+              <input className="input" name="quantity" type="number" min="1" step="1" defaultValue="1" />
+            </label>
+            <label className="grid gap-2">
+              <span className="label">Cost</span>
+              <input className="input" name="unitCost" type="number" min="0" step="1" placeholder="120" required />
+            </label>
+            <label className="grid gap-2">
+              <span className="label">Payment status</span>
+              <select className="input" name="paidStatus" defaultValue="UNPAID">
+                {statuses.map((status) => (
+                  <option key={status} value={status}>
+                    {status.toLowerCase()}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2">
+              <span className="label">Receipt URL</span>
+              <input className="input" name="receiptUrl" placeholder="https://..." />
             </label>
           </div>
           <label className="grid gap-2">
@@ -131,10 +154,18 @@ export default async function BudgetPage({ params }: { params: Promise<{ tripId:
               <div>
                 <p className="font-black">{expense.label}</p>
                 <p className="text-sm font-bold text-ink/60">
-                  {expense.category.toLowerCase()} {expense.date ? `- ${formatDate(expense.date)}` : ""}
+                  {expense.category.toLowerCase()} {expense.vendor ? `- ${expense.vendor}` : ""} {expense.date ? `- ${formatDate(expense.date)}` : ""}
+                </p>
+                <p className="text-xs font-bold text-ink/45">
+                  {expense.paidStatus.toLowerCase()} - {expense.quantity} x {money(expense.unitCost ?? expense.amount)}
                 </p>
               </div>
               <div className="flex items-center gap-3">
+                {expense.receiptUrl ? (
+                  <a className="btn-ghost" href={expense.receiptUrl} rel="noreferrer" target="_blank" title="Open receipt">
+                    <Receipt className="h-4 w-4" />
+                  </a>
+                ) : null}
                 <span className="font-black">{money(expense.amount)}</span>
                 <form action={deleteExpenseAction}>
                   <input name="tripId" type="hidden" value={trip.id} />
