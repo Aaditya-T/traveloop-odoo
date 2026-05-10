@@ -5,6 +5,7 @@ import { Pencil } from "lucide-react";
 import { useActionState, useEffect } from "react";
 import { toast } from "sonner";
 import { type ActionResult, updateTripFormAction } from "@/lib/actions";
+import { R2UploadField } from "@/components/r2-upload-field";
 import { SubmitButton } from "@/components/submit-button";
 
 export type TripDetails = {
@@ -18,7 +19,7 @@ export type TripDetails = {
   description: string | null;
 };
 
-export function TripDetailsForm({ trip }: { trip: TripDetails }) {
+export function TripDetailsForm({ trip, uploadsEnabled }: { trip: TripDetails; uploadsEnabled: boolean }) {
   const [state, formAction] = useActionState(updateTripFormAction, null as ActionResult | null);
 
   useEffect(() => {
@@ -65,10 +66,13 @@ export function TripDetailsForm({ trip }: { trip: TripDetails }) {
           ))}
         </select>
       </label>
-      <label className="grid gap-2">
-        <span className="label">Cover photo URL</span>
-        <input className="input" name="coverPhotoUrl" defaultValue={trip.coverPhotoUrl ?? ""} />
-      </label>
+      <R2UploadField
+        uploadsEnabled={uploadsEnabled}
+        defaultValue={trip.coverPhotoUrl}
+        label="Cover photo"
+        name="coverPhotoUrl"
+        scope="trip-cover"
+      />
       <label className="grid gap-2">
         <span className="label">Description</span>
         <textarea className="input min-h-28" name="description" defaultValue={trip.description ?? ""} />

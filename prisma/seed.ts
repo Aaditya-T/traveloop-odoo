@@ -1,8 +1,8 @@
 /**
  * Traveloop database seed.
  *
- * Re-seeding deletes itinerary rows that point at each catalog city’s activities, then recreates
- * those activities. Trips that used catalog entries will lose those itinerary lines (dev-friendly).
+ * Re-seeding preserves catalog activity IDs whenever possible so demo/public itineraries do not
+ * lose scheduled activities when the catalog is refreshed.
  *
  * Env: this script is run with `tsx`, not Next.js—load `.env` / `.env.local` here so TRAVELOOP_*
  * and DATABASE_URL match what you use in `npm run dev`.
@@ -447,6 +447,238 @@ async function requireActivity(country: string, cityName: string, activityName: 
     throw new Error(`Seed missing activity "${activityName}" in ${cityName}, ${country}`);
   }
   return row;
+}
+
+const SHOWCASE_ITINERARY_SPECS = [
+  {
+    slug: "tokyo-kyoto-sketchbook",
+    stops: [
+      {
+        position: 1,
+        city: "Tokyo",
+        country: "Japan",
+        items: [
+          ["Tsukiji breakfast crawl", "2026-06-12T00:00:00.000Z", "09:00"],
+          ["Asakusa temple sketch walk", "2026-06-13T00:00:00.000Z", "11:00"]
+        ]
+      },
+      {
+        position: 2,
+        city: "Kyoto",
+        country: "Japan",
+        items: [
+          ["Fushimi Inari sunrise", "2026-06-15T00:00:00.000Z", "07:30"],
+          ["Arashiyama bamboo ride", "2026-06-16T00:00:00.000Z", "10:00"]
+        ]
+      }
+    ]
+  },
+  {
+    slug: "paris-barcelona-art-week",
+    stops: [
+      {
+        position: 1,
+        city: "Paris",
+        country: "France",
+        items: [
+          ["Louvre highlights sprint", "2026-07-04T00:00:00.000Z", "10:00"],
+          ["Left Bank picnic map", "2026-07-05T00:00:00.000Z", "18:00"]
+        ]
+      },
+      {
+        position: 2,
+        city: "Barcelona",
+        country: "Spain",
+        items: [
+          ["Tapas lane sampler", "2026-07-08T00:00:00.000Z", "20:00"],
+          ["Bunkers sunset view", "2026-07-09T00:00:00.000Z", "19:30"]
+        ]
+      }
+    ]
+  },
+  {
+    slug: "reykjavik-steam-and-sky",
+    stops: [
+      {
+        position: 1,
+        city: "Reykjavik",
+        country: "Iceland",
+        items: [
+          ["Harbor food walk", "2026-11-07T00:00:00.000Z", "12:30"],
+          ["Golden Circle day loop", "2026-11-09T00:00:00.000Z", "08:00"],
+          ["Lava field soak", "2026-11-11T00:00:00.000Z", "15:00"]
+        ]
+      }
+    ]
+  },
+  {
+    slug: "cusco-altitude-classroom",
+    stops: [
+      {
+        position: 1,
+        city: "Cusco",
+        country: "Peru",
+        items: [
+          ["San Pedro market breakfast", "2026-08-02T00:00:00.000Z", "07:45"],
+          ["Sacred Valley ruins", "2026-08-05T00:00:00.000Z", "06:45"],
+          ["Rainbow Mountain trek", "2026-08-07T00:00:00.000Z", "05:15"]
+        ]
+      }
+    ]
+  },
+  {
+    slug: "queenstown-dopamine-loop",
+    stops: [
+      {
+        position: 1,
+        city: "Queenstown",
+        country: "New Zealand",
+        items: [
+          ["Fergburger picnic run", "2027-02-03T00:00:00.000Z", "12:45"],
+          ["Lake Wakatipu cruise", "2027-02-05T00:00:00.000Z", "10:00"],
+          ["Kawarau bridge jump", "2027-02-06T00:00:00.000Z", "11:00"]
+        ]
+      }
+    ]
+  },
+  {
+    slug: "nyc-vancouver-cdmx-arc",
+    stops: [
+      {
+        position: 1,
+        city: "New York",
+        country: "United States",
+        items: [
+          ["Brooklyn bridge sunrise", "2026-10-18T00:00:00.000Z", "06:15"],
+          ["West Village food crawl", "2026-10-19T00:00:00.000Z", "19:00"]
+        ]
+      },
+      {
+        position: 2,
+        city: "Vancouver",
+        country: "Canada",
+        items: [
+          ["Stanley Park seawall spin", "2026-10-22T00:00:00.000Z", "09:30"],
+          ["Granville Island tasting", "2026-10-23T00:00:00.000Z", "12:00"]
+        ]
+      },
+      {
+        position: 3,
+        city: "Mexico City",
+        country: "Mexico",
+        items: [
+          ["Historic center corridor", "2026-10-26T00:00:00.000Z", "10:00"],
+          ["Roma Norte tacos late", "2026-10-27T00:00:00.000Z", "21:30"]
+        ]
+      }
+    ]
+  },
+  {
+    slug: "hawker-river-sprint",
+    stops: [
+      {
+        position: 1,
+        city: "Singapore",
+        country: "Singapore",
+        items: [
+          ["Hawker center hop", "2026-12-02T00:00:00.000Z", "12:30"],
+          ["Cloud forest dome", "2026-12-03T00:00:00.000Z", "15:00"]
+        ]
+      },
+      {
+        position: 2,
+        city: "Bangkok",
+        country: "Thailand",
+        items: [
+          ["Wat Pho sunrise", "2026-12-06T00:00:00.000Z", "06:00"],
+          ["Chinatown noodle alley", "2026-12-07T00:00:00.000Z", "20:00"]
+        ]
+      }
+    ]
+  },
+  {
+    slug: "dubai-contrast-weekend",
+    stops: [
+      {
+        position: 1,
+        city: "Dubai",
+        country: "United Arab Emirates",
+        items: [
+          ["Old Dubai abra glide", "2026-05-21T00:00:00.000Z", "16:00"],
+          ["Desert dusk safari", "2026-05-22T00:00:00.000Z", "15:30"],
+          ["JBR marina walk", "2026-05-24T00:00:00.000Z", "20:00"]
+        ]
+      }
+    ]
+  }
+] satisfies Array<{
+  slug: string;
+  stops: Array<{
+    position: number;
+    city: string;
+    country: string;
+    items: Array<readonly [string, string, string]>;
+  }>;
+}>;
+
+function sameSeedDate(a: Date, b: Date) {
+  return a.toISOString().slice(0, 10) === b.toISOString().slice(0, 10);
+}
+
+async function repairShowcaseItineraries() {
+  let created = 0;
+
+  for (const spec of SHOWCASE_ITINERARY_SPECS) {
+    const trip = await prisma.trip.findUnique({
+      where: { shareSlug: spec.slug },
+      include: {
+        stops: {
+          include: {
+            city: true,
+            itinerary: true
+          }
+        }
+      }
+    });
+
+    if (!trip) {
+      continue;
+    }
+
+    for (const stopSpec of spec.stops) {
+      const stop = trip.stops.find(
+        (row) => row.position === stopSpec.position && row.city.name === stopSpec.city && row.city.country === stopSpec.country
+      );
+
+      if (!stop) {
+        continue;
+      }
+
+      for (const [activityName, dateString, startTime] of stopSpec.items) {
+        const date = new Date(dateString);
+        const activity = await requireActivity(stopSpec.country, stopSpec.city, activityName);
+        const exists = stop.itinerary.some(
+          (item) => item.activityId === activity.id && item.startTime === startTime && sameSeedDate(item.date, date)
+        );
+
+        if (!exists) {
+          await prisma.itineraryItem.create({
+            data: {
+              stopId: stop.id,
+              activityId: activity.id,
+              date,
+              startTime
+            }
+          });
+          created += 1;
+        }
+      }
+    }
+  }
+
+  if (created > 0) {
+    console.log(`Showcase repair: restored ${created} itinerary items on existing demo trips.`);
+  }
 }
 
 async function seedShowcase(cityRecords: Map<string, string>) {
@@ -1286,23 +1518,37 @@ async function main() {
       }
     });
 
-    await prisma.itineraryItem.deleteMany({ where: { activity: { cityId: record.id } } });
-    await prisma.activity.deleteMany({ where: { cityId: record.id } });
-    await prisma.activity.createMany({
-      data: city.activities.map((tuple) => {
-        const { name, category, description, durationHours, estimatedCost, tags } = activityTupleParts(tuple);
-        return {
-          cityId: record.id,
-          name,
-          category,
-          description,
-          durationHours,
-          estimatedCost,
-          tags,
-          imageUrl: activityImage(tuple, city.imageUrl),
-          isFeatured: estimatedCost <= 50
-        };
-      })
+    const currentActivityNames = city.activities.map((tuple) => activityTupleParts(tuple).name);
+
+    for (const tuple of city.activities) {
+      const { name, category, description, durationHours, estimatedCost, tags } = activityTupleParts(tuple);
+      const data = {
+        cityId: record.id,
+        name,
+        category,
+        description,
+        durationHours,
+        estimatedCost,
+        tags,
+        imageUrl: activityImage(tuple, city.imageUrl),
+        isFeatured: estimatedCost <= 50,
+        isArchived: false
+      };
+      const existing = await prisma.activity.findFirst({ where: { cityId: record.id, name } });
+
+      if (existing) {
+        await prisma.activity.update({ where: { id: existing.id }, data });
+      } else {
+        await prisma.activity.create({ data });
+      }
+    }
+
+    await prisma.activity.updateMany({
+      where: {
+        cityId: record.id,
+        name: { notIn: currentActivityNames }
+      },
+      data: { isArchived: true }
     });
     cityRecords.set(city.name, record.id);
   }
@@ -1338,6 +1584,8 @@ async function main() {
   if (process.env.TRAVELOOP_SEED_SHOWCASE === "true" && process.env.TRAVELOOP_SHOWCASE_PASSWORD) {
     await seedShowcase(cityRecords);
   }
+
+  await repairShowcaseItineraries();
 
   const activityCount = cities.reduce((n, c) => n + c.activities.length, 0);
   console.log(`Loaded ${cities.length} cities and ${activityCount} activities.`);

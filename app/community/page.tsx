@@ -14,26 +14,14 @@ export default async function CommunityPage({
   searchParams: Promise<{ q?: string; region?: string; maxBudget?: string }>;
 }) {
   const [user, filters] = await Promise.all([getCurrentUser(), searchParams]);
+  const query = filters.q?.trim().toLowerCase() ?? "";
+  const region = filters.region?.trim().toLowerCase() ?? "";
   const maxBudget = filters.maxBudget ? Number(filters.maxBudget) : null;
   const trips = await prisma.trip.findMany({
     where: {
       OR: [{ visibility: "PUBLIC" }, { isPublic: true }],
       shareSlug: { not: null },
-      moderationStatus: "ACTIVE",
-      ...(filters.q
-        ? {
-            AND: [
-              {
-                OR: [
-                  { name: { contains: filters.q, mode: "insensitive" } },
-                  { description: { contains: filters.q, mode: "insensitive" } },
-                  { stops: { some: { city: { name: { contains: filters.q, mode: "insensitive" } } } } }
-                ]
-              }
-            ]
-          }
-        : {}),
-      ...(filters.region ? { stops: { some: { city: { region: filters.region } } } } : {})
+      moderationStatus: "ACTIVE"
     },
     orderBy: [{ likes: { _count: "desc" } }, { updatedAt: "desc" }],
     include: {
@@ -49,11 +37,31 @@ export default async function CommunityPage({
         include: { user: { select: { name: true } } }
       }
     },
-    take: 24
+    take: 100
   });
-  const filteredTrips = maxBudget
-    ? trips.filter((trip) => totalActivityCost(trip.stops.flatMap((stop) => stop.itinerary)) + totalExpenseCost(trip.expenses) <= maxBudget)
-    : trips;
+  const filteredTrips = trips
+    .filter((trip) => {
+      if (!query) return true;
+      const haystack = [
+        trip.name,
+        trip.description ?? "",
+        trip.owner.name,
+        ...trip.stops.flatMap((stop) => [stop.city.name, stop.city.country, stop.city.region, stop.city.summary])
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(query);
+    })
+    .filter((trip) => {
+      if (!region) return true;
+      return trip.stops.some((stop) => stop.city.region.toLowerCase().includes(region));
+    })
+    .filter((trip) => {
+      if (!Number.isFinite(maxBudget) || maxBudget === null) return true;
+      return totalActivityCost(trip.stops.flatMap((stop) => stop.itinerary)) + totalExpenseCost(trip.expenses) <= maxBudget;
+    })
+    .slice(0, 24);
 
   return (
     <main className="mx-auto grid min-h-screen max-w-7xl gap-6 px-4 py-8">

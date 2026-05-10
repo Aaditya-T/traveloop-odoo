@@ -39,6 +39,9 @@ export default async function BuilderPage({
   const { tripId } = await params;
   const filters = await searchParams;
   const step = currentStep(filters.step);
+  const cityQuery = filters.city?.trim().toLowerCase() ?? "";
+  const regionQuery = filters.region?.trim().toLowerCase() ?? "";
+  const activityQuery = filters.activity?.trim().toLowerCase() ?? "";
   const trip = await prisma.trip.findUnique({
     where: { id: tripId, ownerId: user.id },
     include: {
@@ -59,36 +62,17 @@ export default async function BuilderPage({
   const itineraryItems = trip.stops.flatMap((stop) => stop.itinerary);
   const activityEstimate = totalActivityCost(itineraryItems);
   const days = groupItineraryByDay(trip.stops);
-  const [cities, activities] = await Promise.all([
+  const [cityRows, activityRows] = await Promise.all([
     prisma.city.findMany({
       where: {
-        AND: [
-          filters.city
-            ? {
-                OR: [
-                  { name: { contains: filters.city, mode: "insensitive" } },
-                  { country: { contains: filters.city, mode: "insensitive" } }
-                ]
-              }
-            : {},
-          filters.region ? { region: filters.region } : {},
-          { isArchived: false }
-        ]
+        isArchived: false
       },
       orderBy: [{ isFeatured: "desc" }, { popularity: "desc" }, { name: "asc" }],
-      take: 8
+      take: 100
     }),
     prisma.activity.findMany({
       where: {
         AND: [
-          filters.activity
-            ? {
-                OR: [
-                  { name: { contains: filters.activity, mode: "insensitive" } },
-                  { description: { contains: filters.activity, mode: "insensitive" } }
-                ]
-              }
-            : {},
           filters.category ? { category: filters.category } : {},
           trip.stops.length ? { cityId: { in: trip.stops.map((stop) => stop.cityId) } } : { id: "__no_stops_yet__" },
           { isArchived: false, city: { isArchived: false } }
@@ -96,9 +80,28 @@ export default async function BuilderPage({
       },
       include: { city: true },
       orderBy: [{ isFeatured: "desc" }, { estimatedCost: "asc" }],
-      take: 12
+      take: 100
     })
   ]);
+  const cities = cityRows
+    .filter((city) => {
+      if (!cityQuery) return true;
+      return [city.name, city.country, city.region, city.summary].join(" ").toLowerCase().includes(cityQuery);
+    })
+    .filter((city) => {
+      if (!regionQuery) return true;
+      return city.region.toLowerCase().includes(regionQuery);
+    })
+    .slice(0, 8);
+  const activities = activityRows
+    .filter((activity) => {
+      if (!activityQuery) return true;
+      return [activity.name, activity.description, activity.city.name, activity.city.country, activity.category, ...activity.tags]
+        .join(" ")
+        .toLowerCase()
+        .includes(activityQuery);
+    })
+    .slice(0, 12);
 
   return (
     <div className="grid gap-6">

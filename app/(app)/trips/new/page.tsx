@@ -1,9 +1,12 @@
-import { Eye, ImagePlus, WalletCards } from "lucide-react";
+import { Eye, WalletCards } from "lucide-react";
 import { TripVisibility } from "@prisma/client";
+import { R2UploadField } from "@/components/r2-upload-field";
 import { createTripAction } from "@/lib/actions";
 import { htmlDate } from "@/lib/date";
+import { isR2Configured } from "@/lib/r2";
 
 export default function NewTripPage() {
+  const uploadsEnabled = isR2Configured();
   const today = new Date();
   const nextWeek = new Date(today);
   nextWeek.setDate(today.getDate() + 7);
@@ -41,13 +44,12 @@ export default function NewTripPage() {
           </span>
         </label>
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="grid gap-2">
-            <span className="label">Cover photo URL</span>
-            <span className="relative">
-              <ImagePlus className="pointer-events-none absolute left-3 top-2.5 h-5 w-5 text-ink/45" />
-              <input className="input pl-10" name="coverPhotoUrl" placeholder="https://..." />
-            </span>
-          </label>
+          <R2UploadField
+            uploadsEnabled={uploadsEnabled}
+            label="Cover photo"
+            name="coverPhotoUrl"
+            scope="trip-cover"
+          />
           <label className="grid gap-2">
             <span className="label">Budget limit</span>
             <span className="relative">

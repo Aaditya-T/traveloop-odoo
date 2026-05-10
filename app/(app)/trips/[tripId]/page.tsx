@@ -11,9 +11,11 @@ import { money, totalActivityCost, totalExpenseCost } from "@/lib/budget";
 import { formatDate, htmlDate } from "@/lib/date";
 import { groupItineraryByDay } from "@/lib/itinerary";
 import { prisma } from "@/lib/prisma";
+import { isR2Configured } from "@/lib/r2";
 
 export default async function TripPage({ params }: { params: Promise<{ tripId: string }> }) {
   const user = await requireUser();
+  const uploadsEnabled = isR2Configured();
   const { tripId } = await params;
   const trip = await prisma.trip.findUnique({
     where: { id: tripId, ownerId: user.id },
@@ -179,7 +181,7 @@ export default async function TripPage({ params }: { params: Promise<{ tripId: s
           )}
         </div>
 
-        <TripDetailsForm trip={tripDetails} />
+        <TripDetailsForm trip={tripDetails} uploadsEnabled={uploadsEnabled} />
       </section>
     </div>
   );
