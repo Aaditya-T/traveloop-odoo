@@ -6,6 +6,8 @@ import { requireUser } from "@/lib/auth";
 import { averagePerDay, budgetByCategory, money, totalActivityCost, totalExpenseCost } from "@/lib/budget";
 import { formatDate, htmlDate } from "@/lib/date";
 import { prisma } from "@/lib/prisma";
+import { isR2Configured } from "@/lib/r2";
+import { R2UploadField } from "@/components/r2-upload-field";
 
 const categories = Object.values(BudgetCategory);
 const statuses = Object.values(PaymentStatus);
@@ -36,6 +38,7 @@ export default async function BudgetPage({ params }: { params: Promise<{ tripId:
   const byCategory = budgetByCategory(trip.expenses, activityCost);
   const highest = Math.max(...Array.from(byCategory.values()), 1);
   const overBudget = trip.budgetLimit > 0 && total > trip.budgetLimit;
+  const uploadsEnabled = isR2Configured();
 
   return (
     <div className="grid gap-6">
@@ -131,10 +134,14 @@ export default async function BudgetPage({ params }: { params: Promise<{ tripId:
                 ))}
               </select>
             </label>
-            <label className="grid gap-2">
-              <span className="label">Receipt URL</span>
-              <input className="input" name="receiptUrl" placeholder="https://..." />
-            </label>
+            <div className="sm:col-span-2">
+              <R2UploadField
+                uploadsEnabled={uploadsEnabled}
+                label="Receipt"
+                name="receiptUrl"
+                scope="receipt"
+              />
+            </div>
           </div>
           <label className="grid gap-2">
             <span className="label">Date</span>

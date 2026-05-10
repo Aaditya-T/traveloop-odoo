@@ -51,58 +51,78 @@ enum PaymentStatus {
   PAID
 }
 
+enum ModerationStatus {
+  ACTIVE
+  HIDDEN
+  TAKEN_DOWN
+}
+
+enum ReportStatus {
+  PENDING
+  RESOLVED
+  DISMISSED
+}
+
 model User {
-  id                    String          @id @default(cuid())
-  name                  String
-  email                 String          @unique
-  passwordHash          String
-  role                  UserRole        @default(USER)
-  photoUrl              String?
-  phone                 String?
-  bio                   String?
-  homeCity              String?
-  homeCountry           String?
-  language              String          @default("en")
-  defaultTripVisibility TripVisibility  @default(PRIVATE)
-  hasCompletedOnboarding Boolean        @default(false)
-  tutorialStep          Int             @default(0)
-  createdAt             DateTime        @default(now())
-  updatedAt             DateTime        @updatedAt
-  trips                 Trip[]
-  likedTrips            TripLike[]
-  savedTrips            TripSave[]
-  comments              TripComment[]
+  id                     String          @id @default(cuid())
+  name                   String
+  email                  String          @unique
+  passwordHash           String
+  role                   UserRole        @default(USER)
+  photoUrl               String?
+  phone                  String?
+  bio                    String?
+  homeCity               String?
+  homeCountry            String?
+  language               String          @default("en")
+  defaultTripVisibility  TripVisibility  @default(PRIVATE)
+  hasCompletedOnboarding Boolean         @default(false)
+  tutorialStep           Int             @default(0)
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+  trips                  Trip[]
+  likedTrips             TripLike[]
+  savedTrips             TripSave[]
+  comments               TripComment[]
+  tripReports            TripReport[]
+  commentReports         CommentReport[]
 }
 
 model Trip {
-  id             String        @id @default(cuid())
-  ownerId        String
-  name           String
-  description    String?
-  startDate      DateTime
-  endDate        DateTime
-  coverPhotoUrl  String?
-  budgetLimit    Int          @default(0)
-  isPublic       Boolean      @default(false)
-  visibility     TripVisibility @default(PRIVATE)
-  shareSlug      String?      @unique
-  sourceTripId   String?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  owner          User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  sourceTrip     Trip?        @relation("TripCopies", fields: [sourceTripId], references: [id], onDelete: SetNull)
-  copiedTrips    Trip[]       @relation("TripCopies")
-  stops          TripStop[]
-  expenses       TripExpense[]
-  notes          TripNote[]
-  checklistItems PackingItem[]
-  likes          TripLike[]
-  saves          TripSave[]
-  comments       TripComment[]
+  id               String           @id @default(cuid())
+  ownerId          String
+  name             String
+  description      String?
+  startDate        DateTime
+  endDate          DateTime
+  coverPhotoUrl    String?
+  budgetLimit      Int              @default(0)
+  isPublic         Boolean          @default(false)
+  visibility       TripVisibility   @default(PRIVATE)
+  shareSlug        String?          @unique
+  sourceTripId     String?
+  moderationStatus ModerationStatus @default(ACTIVE)
+  moderationReason String?
+  moderatedAt      DateTime?
+  moderatedById    String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  owner            User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  sourceTrip       Trip?            @relation("TripCopies", fields: [sourceTripId], references: [id], onDelete: SetNull)
+  copiedTrips      Trip[]           @relation("TripCopies")
+  stops            TripStop[]
+  expenses         TripExpense[]
+  notes            TripNote[]
+  checklistItems   PackingItem[]
+  likes            TripLike[]
+  saves            TripSave[]
+  comments         TripComment[]
+  reports          TripReport[]
 
   @@index([ownerId])
   @@index([visibility])
   @@index([sourceTripId])
+  @@index([moderationStatus])
 }
 
 model City {
@@ -147,53 +167,53 @@ model Activity {
 }
 
 model TripStop {
-  id         String          @id @default(cuid())
-  tripId     String
-  cityId     String
-  position   Int
-  startDate  DateTime
-  endDate    DateTime
-  notes      String?
-  trip       Trip            @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  city       City            @relation(fields: [cityId], references: [id])
-  itinerary  ItineraryItem[]
-  expenses   TripExpense[]
-  tripNotes  TripNote[]
+  id        String          @id @default(cuid())
+  tripId    String
+  cityId    String
+  position  Int
+  startDate DateTime
+  endDate   DateTime
+  notes     String?
+  trip      Trip            @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  city      City            @relation(fields: [cityId], references: [id])
+  itinerary ItineraryItem[]
+  expenses  TripExpense[]
+  tripNotes TripNote[]
 
   @@index([tripId, position])
   @@index([cityId])
 }
 
 model ItineraryItem {
-  id           String     @id @default(cuid())
+  id           String   @id @default(cuid())
   stopId       String
   activityId   String
   date         DateTime
   startTime    String
   costOverride Int?
   notes        String?
-  stop         TripStop   @relation(fields: [stopId], references: [id], onDelete: Cascade)
-  activity     Activity   @relation(fields: [activityId], references: [id])
+  stop         TripStop @relation(fields: [stopId], references: [id], onDelete: Cascade)
+  activity     Activity @relation(fields: [activityId], references: [id])
 
   @@index([stopId, date])
 }
 
 model TripExpense {
-  id        String         @id @default(cuid())
-  tripId    String
-  stopId    String?
-  category  BudgetCategory
-  label     String
-  amount    Int
-  vendor    String?
-  quantity  Int            @default(1)
-  unitCost  Int?
-  paidStatus PaymentStatus @default(UNPAID)
+  id         String         @id @default(cuid())
+  tripId     String
+  stopId     String?
+  category   BudgetCategory
+  label      String
+  amount     Int
+  vendor     String?
+  quantity   Int            @default(1)
+  unitCost   Int?
+  paidStatus PaymentStatus  @default(UNPAID)
   receiptUrl String?
-  date      DateTime?
-  createdAt DateTime       @default(now())
-  trip      Trip           @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  stop      TripStop?      @relation(fields: [stopId], references: [id], onDelete: SetNull)
+  date       DateTime?
+  createdAt  DateTime       @default(now())
+  trip       Trip           @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  stop       TripStop?      @relation(fields: [stopId], references: [id], onDelete: SetNull)
 
   @@index([tripId])
   @@index([category])
@@ -212,14 +232,14 @@ model PackingItem {
 }
 
 model TripNote {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   tripId    String
   stopId    String?
   title     String
   body      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  trip      Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
   stop      TripStop? @relation(fields: [stopId], references: [id], onDelete: SetNull)
 
   @@index([tripId])
@@ -250,14 +270,58 @@ model TripSave {
 }
 
 model TripComment {
-  id        String   @id @default(cuid())
-  userId    String
-  tripId    String
-  body      String
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  id               String           @id @default(cuid())
+  userId           String
+  tripId           String
+  body             String
+  moderationStatus ModerationStatus @default(ACTIVE)
+  moderationReason String?
+  moderatedAt      DateTime?
+  moderatedById    String?
+  createdAt        DateTime         @default(now())
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trip             Trip             @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  reports          CommentReport[]
 
   @@index([tripId, createdAt])
   @@index([userId])
+  @@index([moderationStatus])
+}
+
+model TripReport {
+  id              String       @id @default(cuid())
+  tripId          String
+  reporterId      String
+  reason          String
+  details         String?
+  status          ReportStatus @default(PENDING)
+  resolutionNotes String?
+  resolvedAt      DateTime?
+  resolvedById    String?
+  createdAt       DateTime     @default(now())
+  trip            Trip         @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  reporter        User         @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
+  @@index([reporterId])
+  @@index([status, createdAt])
+}
+
+model CommentReport {
+  id              String       @id @default(cuid())
+  commentId       String
+  reporterId      String
+  reason          String
+  details         String?
+  status          ReportStatus @default(PENDING)
+  resolutionNotes String?
+  resolvedAt      DateTime?
+  resolvedById    String?
+  createdAt       DateTime     @default(now())
+  comment         TripComment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  reporter        User         @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@index([commentId])
+  @@index([reporterId])
+  @@index([status, createdAt])
 }

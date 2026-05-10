@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { invoiceLineAmount, invoiceTotals } from "@/lib/invoice";
-import { canViewTrip, isDiscoverableTrip } from "@/lib/platform";
+import { canViewTrip, isDiscoverableTrip, isPubliclyVisibleTrip, isVisibleComment } from "@/lib/platform";
 
 describe("visibility helpers", () => {
   it("allows public discovery but protects private trips", () => {
@@ -9,6 +9,14 @@ describe("visibility helpers", () => {
     expect(canViewTrip({ ownerId: "owner", visibility: "PRIVATE" }, "owner")).toBe(true);
     expect(canViewTrip({ ownerId: "owner", visibility: "PRIVATE" }, "guest")).toBe(false);
     expect(canViewTrip({ ownerId: "owner", visibility: "UNLISTED" }, "guest")).toBe(true);
+  });
+
+  it("excludes moderated public trips and hidden comments from public surfaces", () => {
+    expect(isPubliclyVisibleTrip({ visibility: "PUBLIC", moderationStatus: "ACTIVE" })).toBe(true);
+    expect(isPubliclyVisibleTrip({ visibility: "PUBLIC", moderationStatus: "TAKEN_DOWN" })).toBe(false);
+    expect(isPubliclyVisibleTrip({ visibility: "PUBLIC", moderationStatus: "HIDDEN" })).toBe(false);
+    expect(isVisibleComment({ moderationStatus: "ACTIVE" })).toBe(true);
+    expect(isVisibleComment({ moderationStatus: "HIDDEN" })).toBe(false);
   });
 });
 

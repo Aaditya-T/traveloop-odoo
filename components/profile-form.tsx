@@ -5,6 +5,7 @@ import { UserRound } from "lucide-react";
 import { useActionState, useEffect } from "react";
 import { toast } from "sonner";
 import { type ActionResult, updateProfileFormAction } from "@/lib/actions";
+import { R2UploadField } from "@/components/r2-upload-field";
 import { SubmitButton } from "@/components/submit-button";
 
 export type ProfileFormUser = {
@@ -19,7 +20,7 @@ export type ProfileFormUser = {
   defaultTripVisibility: TripVisibility;
 };
 
-export function ProfileForm({ user }: { user: ProfileFormUser }) {
+export function ProfileForm({ user, uploadsEnabled }: { user: ProfileFormUser; uploadsEnabled: boolean }) {
   const [state, formAction] = useActionState(updateProfileFormAction, null as ActionResult | null);
 
   useEffect(() => {
@@ -55,10 +56,15 @@ export function ProfileForm({ user }: { user: ProfileFormUser }) {
           <span className="label">Phone</span>
           <input className="input" name="phone" defaultValue={user.phone ?? ""} />
         </label>
-        <label className="grid gap-2">
-          <span className="label">Photo URL</span>
-          <input className="input" name="photoUrl" defaultValue={user.photoUrl ?? ""} />
-        </label>
+        <div className="sm:col-span-2">
+          <R2UploadField
+            uploadsEnabled={uploadsEnabled}
+            defaultValue={user.photoUrl}
+            label="Profile photo"
+            name="photoUrl"
+            scope="profile-avatar"
+          />
+        </div>
         <label className="grid gap-2">
           <span className="label">Home city</span>
           <input className="input" name="homeCity" defaultValue={user.homeCity ?? ""} />

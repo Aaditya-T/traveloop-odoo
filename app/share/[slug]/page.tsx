@@ -5,10 +5,16 @@ import { formatDate } from "@/lib/date";
 import { groupItineraryByDay } from "@/lib/itinerary";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 export default async function PublicSharePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const trip = await prisma.trip.findFirst({
-    where: { shareSlug: slug, OR: [{ visibility: "PUBLIC" }, { visibility: "UNLISTED" }, { isPublic: true }] },
+    where: {
+      shareSlug: slug,
+      moderationStatus: "ACTIVE",
+      OR: [{ visibility: "PUBLIC" }, { visibility: "UNLISTED" }, { isPublic: true }]
+    },
     include: {
       owner: { select: { name: true } },
       stops: {

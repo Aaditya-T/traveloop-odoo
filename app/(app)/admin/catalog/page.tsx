@@ -2,10 +2,13 @@ import { ActivityCategory } from "@prisma/client";
 import { Archive, Plus } from "lucide-react";
 import { upsertActivityAction, upsertCityAction } from "@/lib/actions";
 import { requireAdmin } from "@/lib/auth";
+import { R2UploadField } from "@/components/r2-upload-field";
 import { prisma } from "@/lib/prisma";
+import { isR2Configured } from "@/lib/r2";
 
 export default async function CatalogPage() {
   await requireAdmin();
+  const uploadsEnabled = isR2Configured();
   const [cities, activities] = await Promise.all([
     prisma.city.findMany({ orderBy: [{ isArchived: "asc" }, { popularity: "desc" }] }),
     prisma.activity.findMany({ orderBy: [{ isArchived: "asc" }, { name: "asc" }], include: { city: true }, take: 40 })
@@ -28,10 +31,15 @@ export default async function CatalogPage() {
             <input className="input" name="name" placeholder="City" required />
             <input className="input" name="country" placeholder="Country" required />
             <input className="input" name="region" placeholder="Region" required />
-            <input className="input" name="imageUrl" placeholder="Image URL" required />
             <input className="input" name="costIndex" type="number" min="1" max="5" placeholder="Cost index" />
             <input className="input" name="popularity" type="number" min="1" max="100" placeholder="Popularity" />
           </div>
+          <R2UploadField
+            uploadsEnabled={uploadsEnabled}
+            label="City image"
+            name="imageUrl"
+            scope="catalog-image"
+          />
           <textarea className="input min-h-24" name="summary" placeholder="Short city summary" required />
           <label className="inline-flex items-center gap-2 text-sm font-black">
             <input name="isFeatured" type="checkbox" />
@@ -64,9 +72,9 @@ export default async function CatalogPage() {
             </select>
             <input className="input" name="durationHours" type="number" min="1" placeholder="Duration hours" />
             <input className="input" name="estimatedCost" type="number" min="0" placeholder="Estimated cost" />
-            <input className="input" name="imageUrl" placeholder="Image URL" />
             <input className="input" name="tags" placeholder="food, slow, museum" />
           </div>
+          <R2UploadField uploadsEnabled={uploadsEnabled} label="Activity image" name="imageUrl" scope="catalog-image" />
           <textarea className="input min-h-24" name="description" placeholder="Activity description" required />
           <label className="inline-flex items-center gap-2 text-sm font-black">
             <input name="isFeatured" type="checkbox" />
@@ -88,11 +96,17 @@ export default async function CatalogPage() {
                 <input className="input" name="name" defaultValue={city.name} />
                 <input className="input" name="country" defaultValue={city.country} />
                 <input className="input" name="region" defaultValue={city.region} />
-                <input className="input" name="imageUrl" defaultValue={city.imageUrl} />
                 <input className="input" name="costIndex" type="number" defaultValue={city.costIndex} />
                 <input className="input" name="popularity" type="number" defaultValue={city.popularity} />
               </div>
               <textarea className="input min-h-20" name="summary" defaultValue={city.summary} />
+              <R2UploadField
+                uploadsEnabled={uploadsEnabled}
+                defaultValue={city.imageUrl}
+                label="City image"
+                name="imageUrl"
+                scope="catalog-image"
+              />
               <div className="flex flex-wrap gap-4">
                 <label className="inline-flex items-center gap-2 text-sm font-black"><input name="isFeatured" type="checkbox" defaultChecked={city.isFeatured} /> Featured</label>
                 <label className="inline-flex items-center gap-2 text-sm font-black"><input name="isArchived" type="checkbox" defaultChecked={city.isArchived} /> Archived</label>
@@ -120,10 +134,16 @@ export default async function CatalogPage() {
                 </select>
                 <input className="input" name="durationHours" type="number" defaultValue={activity.durationHours} />
                 <input className="input" name="estimatedCost" type="number" defaultValue={activity.estimatedCost} />
-                <input className="input" name="imageUrl" defaultValue={activity.imageUrl} />
                 <input className="input" name="tags" defaultValue={activity.tags.join(", ")} />
               </div>
               <textarea className="input min-h-20" name="description" defaultValue={activity.description} />
+              <R2UploadField
+                uploadsEnabled={uploadsEnabled}
+                defaultValue={activity.imageUrl}
+                label="Activity image"
+                name="imageUrl"
+                scope="catalog-image"
+              />
               <div className="flex flex-wrap gap-4">
                 <label className="inline-flex items-center gap-2 text-sm font-black"><input name="isFeatured" type="checkbox" defaultChecked={activity.isFeatured} /> Featured</label>
                 <label className="inline-flex items-center gap-2 text-sm font-black"><input name="isArchived" type="checkbox" defaultChecked={activity.isArchived} /> Archived</label>

@@ -1,6 +1,7 @@
 import { LockKeyhole, ShieldAlert, Star } from "lucide-react";
 import Link from "next/link";
 import { ProfileForm, type ProfileFormUser } from "@/components/profile-form";
+import { isR2Configured } from "@/lib/r2";
 import { SubmitButton } from "@/components/submit-button";
 import { changePasswordAction, deleteAccountAction } from "@/lib/actions";
 import { requireUser } from "@/lib/auth";
@@ -9,9 +10,10 @@ import { prisma } from "@/lib/prisma";
 
 export default async function SettingsPage() {
   const user = await requireUser();
+  const uploadsEnabled = isR2Configured();
   const [publicTrips, savedTrips, copiedTrips] = await Promise.all([
     prisma.trip.findMany({ where: { ownerId: user.id, visibility: "PUBLIC" }, orderBy: { updatedAt: "desc" }, take: 6 }),
-    prisma.tripSave.findMany({ where: { userId: user.id }, include: { trip: true }, orderBy: { createdAt: "desc" }, take: 6 }),
+    prisma.tripSave.findMany({ where: { userId: user.id, trip: { moderationStatus: "ACTIVE" } }, include: { trip: true }, orderBy: { createdAt: "desc" }, take: 6 }),
     prisma.trip.findMany({ where: { ownerId: user.id, sourceTripId: { not: null } }, include: { sourceTrip: true }, orderBy: { createdAt: "desc" }, take: 6 })
   ]);
 
@@ -35,7 +37,7 @@ export default async function SettingsPage() {
       </div>
 
       <section className="grid gap-5 lg:grid-cols-[1fr_0.85fr]">
-        <ProfileForm user={profileUser} />
+        <ProfileForm uploadsEnabled={uploadsEnabled} user={profileUser} />
 
         <div className="grid content-start gap-5">
           <form action={changePasswordAction} className="sketch-panel grid gap-4 p-5">

@@ -1,7 +1,7 @@
 "use server";
 
 import { randomBytes } from "node:crypto";
-import { ActivityCategory, BudgetCategory, ChecklistCategory, PaymentStatus, Prisma, TripVisibility } from "@prisma/client";
+import { ActivityCategory, BudgetCategory, ChecklistCategory, PaymentStatus, Prisma, ReportStatus, TripVisibility } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { clearSession, createSession, hashPassword, requireAdmin, requireUser, verifyPassword } from "@/lib/auth";
@@ -530,6 +530,15 @@ export async function deleteAccountAction(formData: FormData) {
 export async function toggleLikeTripAction(formData: FormData) {
   const user = await requireUser();
   const tripId = text(formData, "tripId");
+  const trip = await prisma.trip.findFirst({
+    where: { id: tripId, moderationStatus: "ACTIVE", OR: [{ visibility: "PUBLIC" }, { isPublic: true }] },
+    select: { id: true }
+  });
+
+  if (!trip) {
+    redirect("/community");
+  }
+
   const existing = await prisma.tripLike.findUnique({ where: { userId_tripId: { userId: user.id, tripId } } });
 
   if (existing) {
@@ -545,6 +554,15 @@ export async function toggleLikeTripAction(formData: FormData) {
 export async function toggleSaveTripAction(formData: FormData) {
   const user = await requireUser();
   const tripId = text(formData, "tripId");
+  const trip = await prisma.trip.findFirst({
+    where: { id: tripId, moderationStatus: "ACTIVE", OR: [{ visibility: "PUBLIC" }, { isPublic: true }] },
+    select: { id: true }
+  });
+
+  if (!trip) {
+    redirect("/community");
+  }
+
   const existing = await prisma.tripSave.findUnique({ where: { userId_tripId: { userId: user.id, tripId } } });
 
   if (existing) {
@@ -562,7 +580,7 @@ export async function addCommunityCommentAction(formData: FormData) {
   const tripId = text(formData, "tripId");
   const body = text(formData, "body");
   const trip = await prisma.trip.findFirst({
-    where: { id: tripId, OR: [{ visibility: "PUBLIC" }, { isPublic: true }] },
+    where: { id: tripId, moderationStatus: "ACTIVE", OR: [{ visibility: "PUBLIC" }, { isPublic: true }] },
     select: { id: true }
   });
 
@@ -577,7 +595,7 @@ export async function copyPublicTripAction(formData: FormData) {
   const user = await requireUser();
   const tripId = text(formData, "tripId");
   const source = await prisma.trip.findFirst({
-    where: { id: tripId, OR: [{ visibility: "PUBLIC" }, { isPublic: true }] },
+    where: { id: tripId, moderationStatus: "ACTIVE", OR: [{ visibility: "PUBLIC" }, { isPublic: true }] },
     include: {
       stops: { orderBy: { position: "asc" }, include: { itinerary: true } },
       expenses: true,
@@ -754,4 +772,148 @@ export async function restartTutorialAction() {
   });
 
   revalidatePath("/dashboard");
+}
+
+export async function reportTripAction(formData: FormData) {
+  const user = await requireUser();
+  const tripId = text(formData, "tripId");
+  const reason = text(formData, "reason", "Misleading or invalid itinerary");
+  const details = text(formData, "details");
+  const trip = await prisma.trip.findFirst({
+    where: { id: tripId, moderationStatus: "ACTIVE", OR: [{ visibility: "PUBLIC" }, { isPublic: true }] },
+    select: { id: true }
+  });
+
+  if (trip) {
+    await prisma.tripReport.create({
+      data: {
+        tripId,
+        reporterId: user.id,
+        reason,
+        details: details || null
+      }
+    });
+  }
+
+  revalidatePath("/community");
+}
+
+export async function reportCommentAction(formData: FormData) {
+  const user = await requireUser();
+  const commentId = text(formData, "commentId");
+  const reason = text(formData, "reason", "Inappropriate or misleading comment");
+  const details = text(formData, "details");
+  const comment = await prisma.tripComment.findFirst({
+    where: {
+      id: commentId,
+      moderationStatus: "ACTIVE",
+      trip: { moderationStatus: "ACTIVE", OR: [{ visibility: "PUBLIC" }, { isPublic: true }] }
+    },
+    select: { id: true }
+  });
+
+  if (comment) {
+    await prisma.commentReport.create({
+      data: {
+        commentId,
+        reporterId: user.id,
+        reason,
+        details: details || null
+      }
+    });
+  }
+
+  revalidatePath("/community");
+}
+
+export async function hideCommentAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const commentId = text(formData, "commentId");
+  const reason = text(formData, "reason", "Hidden by admin moderation");
+
+  await prisma.tripComment.update({
+    where: { id: commentId },
+    data: {
+      moderationStatus: "HIDDEN",
+      moderationReason: reason,
+      moderatedAt: new Date(),
+      moderatedById: admin.id
+    }
+  });
+
+  revalidatePath("/community");
+  revalidatePath("/admin");
+  revalidatePath("/admin/moderation");
+}
+
+export async function deleteCommentAction(formData: FormData) {
+  await requireAdmin();
+  const commentId = text(formData, "commentId");
+
+  await prisma.tripComment.delete({ where: { id: commentId } });
+  revalidatePath("/community");
+  revalidatePath("/admin");
+  revalidatePath("/admin/moderation");
+}
+
+export async function takeDownTripAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const tripId = text(formData, "tripId");
+  const reason = text(formData, "reason", "Taken down by admin moderation");
+
+  await prisma.trip.update({
+    where: { id: tripId },
+    data: {
+      moderationStatus: "TAKEN_DOWN",
+      moderationReason: reason,
+      moderatedAt: new Date(),
+      moderatedById: admin.id
+    }
+  });
+
+  revalidatePath("/community");
+  revalidatePath("/admin");
+  revalidatePath("/admin/moderation");
+}
+
+export async function restoreTripAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const tripId = text(formData, "tripId");
+
+  await prisma.trip.update({
+    where: { id: tripId },
+    data: {
+      moderationStatus: "ACTIVE",
+      moderationReason: null,
+      moderatedAt: new Date(),
+      moderatedById: admin.id
+    }
+  });
+
+  revalidatePath("/community");
+  revalidatePath("/admin");
+  revalidatePath("/admin/moderation");
+}
+
+export async function resolveReportAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const reportType = text(formData, "reportType");
+  const reportId = text(formData, "reportId");
+  const status = enumValue(text(formData, "status"), Object.values(ReportStatus), "RESOLVED");
+  const resolutionNotes = text(formData, "resolutionNotes");
+  const data = {
+    status,
+    resolutionNotes: resolutionNotes || null,
+    resolvedAt: new Date(),
+    resolvedById: admin.id
+  };
+
+  if (reportType === "comment") {
+    await prisma.commentReport.update({ where: { id: reportId }, data });
+  } else {
+    await prisma.tripReport.update({ where: { id: reportId }, data });
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/moderation");
 }
