@@ -1,0 +1,127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: "Inter";
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background: #fff8ec;
+}
+
+body {
+  min-height: 100%;
+  color: #26222f;
+  background:
+    radial-gradient(circle at 10% 10%, rgba(245, 208, 111, 0.35), transparent 26rem),
+    radial-gradient(circle at 90% 8%, rgba(42, 167, 161, 0.2), transparent 24rem),
+    linear-gradient(135deg, #fff8ec 0%, #fdf1da 48%, #e7f5fb 100%);
+  letter-spacing: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+@layer components {
+  .sketch-panel {
+    @apply border-2 border-ink bg-white shadow-sketch;
+    border-radius: 8px;
+  }
+
+  .soft-panel {
+    @apply border-2 border-ink/80 bg-white/80 shadow-soft;
+    border-radius: 8px;
+  }
+
+  .btn-primary {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 border-2 border-ink bg-coral px-4 py-2 text-sm font-black text-white shadow-sketch transition hover:-translate-y-0.5 hover:bg-ink focus:outline-none focus:ring-4 focus:ring-ticket/70;
+    border-radius: 8px;
+  }
+
+  .btn-secondary {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 border-2 border-ink bg-ticket px-4 py-2 text-sm font-black text-ink shadow-sketch transition hover:-translate-y-0.5 focus:outline-none focus:ring-4 focus:ring-coral/30;
+    border-radius: 8px;
+  }
+
+  .btn-ghost {
+    @apply inline-flex min-h-10 items-center justify-center gap-2 border-2 border-ink/40 bg-white/70 px-3 py-2 text-sm font-bold text-ink transition hover:border-ink hover:bg-white;
+    border-radius: 8px;
+  }
+
+  .input {
+    @apply w-full border-2 border-ink bg-white px-3 py-2 text-sm outline-none transition placeholder:text-ink/35 focus:ring-4 focus:ring-skywash;
+    border-radius: 8px;
+  }
+
+  .label {
+    @apply text-xs font-black uppercase tracking-wide text-ink/65;
+  }
+
+  .mini-tab {
+    @apply inline-flex items-center gap-2 border-2 border-ink bg-white px-3 py-2 text-sm font-extrabold text-ink shadow-sketch transition hover:-translate-y-0.5 hover:bg-skywash;
+    border-radius: 8px;
+  }
+
+  .stamp {
+    @apply inline-flex rotate-[-2deg] items-center border-2 border-dashed border-coral px-3 py-1 text-xs font-black uppercase text-coral;
+    border-radius: 8px;
+  }
+
+  .doodle-map {
+    background-image:
+      linear-gradient(rgba(38, 34, 47, 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(38, 34, 47, 0.045) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+}
+
+.route-line {
+  position: relative;
+}
+
+.route-line::before {
+  position: absolute;
+  inset: 1.15rem auto 1rem 1.1rem;
+  width: 2px;
+  content: "";
+  background-image: linear-gradient(#26222f 45%, transparent 45%);
+  background-size: 2px 10px;
+}
+
+.floaty {
+  animation: floaty 4s ease-in-out infinite;
+}
+
+.ticket-wiggle {
+  animation: wiggle 5s ease-in-out infinite;
+}
+
+@keyframes floaty {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+@keyframes wiggle {
+  0%,
+  100% {
+    transform: rotate(-1deg);
+  }
+  50% {
+    transform: rotate(1.5deg);
+  }
+}

@@ -1,0 +1,176 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ActivityCategory {
+  SIGHTSEEING
+  FOOD
+  ADVENTURE
+  CULTURE
+  RELAX
+  SHOPPING
+  NIGHTLIFE
+}
+
+enum BudgetCategory {
+  TRANSPORT
+  STAY
+  ACTIVITIES
+  MEALS
+  SHOPPING
+  BUFFER
+}
+
+enum ChecklistCategory {
+  CLOTHING
+  DOCUMENTS
+  ELECTRONICS
+  HEALTH
+  MISC
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  photoUrl     String?
+  language     String   @default("en")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  trips        Trip[]
+}
+
+model Trip {
+  id             String        @id @default(cuid())
+  ownerId        String
+  name           String
+  description    String?
+  startDate      DateTime
+  endDate        DateTime
+  coverPhotoUrl  String?
+  budgetLimit    Int          @default(0)
+  isPublic       Boolean      @default(false)
+  shareSlug      String?      @unique
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  owner          User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  stops          TripStop[]
+  expenses       TripExpense[]
+  notes          TripNote[]
+  checklistItems PackingItem[]
+
+  @@index([ownerId])
+}
+
+model City {
+  id         String     @id @default(cuid())
+  name       String
+  country    String
+  region     String
+  costIndex  Int
+  popularity Int
+  imageUrl   String
+  summary    String
+  stops      TripStop[]
+  activities Activity[]
+
+  @@unique([name, country])
+  @@index([region])
+}
+
+model Activity {
+  id            String           @id @default(cuid())
+  cityId        String
+  name          String
+  category      ActivityCategory
+  description   String
+  durationHours Int
+  estimatedCost Int
+  imageUrl      String
+  tags          String[]
+  city          City             @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  itinerary     ItineraryItem[]
+
+  @@index([cityId])
+  @@index([category])
+}
+
+model TripStop {
+  id         String          @id @default(cuid())
+  tripId     String
+  cityId     String
+  position   Int
+  startDate  DateTime
+  endDate    DateTime
+  notes      String?
+  trip       Trip            @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  city       City            @relation(fields: [cityId], references: [id])
+  itinerary  ItineraryItem[]
+  expenses   TripExpense[]
+  tripNotes  TripNote[]
+
+  @@index([tripId, position])
+  @@index([cityId])
+}
+
+model ItineraryItem {
+  id           String     @id @default(cuid())
+  stopId       String
+  activityId   String
+  date         DateTime
+  startTime    String
+  costOverride Int?
+  notes        String?
+  stop         TripStop   @relation(fields: [stopId], references: [id], onDelete: Cascade)
+  activity     Activity   @relation(fields: [activityId], references: [id])
+
+  @@index([stopId, date])
+}
+
+model TripExpense {
+  id        String         @id @default(cuid())
+  tripId    String
+  stopId    String?
+  category  BudgetCategory
+  label     String
+  amount    Int
+  date      DateTime?
+  createdAt DateTime       @default(now())
+  trip      Trip           @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  stop      TripStop?      @relation(fields: [stopId], references: [id], onDelete: SetNull)
+
+  @@index([tripId])
+  @@index([category])
+}
+
+model PackingItem {
+  id        String            @id @default(cuid())
+  tripId    String
+  title     String
+  category  ChecklistCategory
+  isPacked  Boolean           @default(false)
+  createdAt DateTime          @default(now())
+  trip      Trip              @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
+}
+
+model TripNote {
+  id        String   @id @default(cuid())
+  tripId    String
+  stopId    String?
+  title     String
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  stop      TripStop? @relation(fields: [stopId], references: [id], onDelete: SetNull)
+
+  @@index([tripId])
+}
