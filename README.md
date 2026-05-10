@@ -4,6 +4,8 @@ Traveloop is a multi-city travel planning platform for building, publishing, and
 
 The product is designed for a travel planning workflow where users can start privately, shape a detailed trip, publish it when ready, and let other travellers browse or copy it into their own account.
 
+To see our market research report, checkout [market-research.md](https://github.com/Aaditya-T/traveloop-odoo/blob/main/market-research.md)
+
 ## Platform Features
 
 ### Trip Planning
